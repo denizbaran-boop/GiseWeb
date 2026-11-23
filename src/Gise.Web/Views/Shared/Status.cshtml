@@ -1,0 +1,32 @@
+@model StatusVm
+@{
+    var (title, text, icon) = Model.Code switch
+    {
+        404 => ("Sayfa bulunamadı", "Aradığın sayfa taşınmış ya da hiç var olmamış olabilir.", "search"),
+        403 => ("Erişim yok", "Bu sayfayı görüntüleme yetkin yok. Farklı bir hesapla giriş yapmayı dene.", "lock"),
+        401 => ("Giriş yapman gerekiyor", "Devam etmek için hesabına giriş yap.", "lock"),
+        400 => ("İstek geçersiz", "Gönderilen bilgiler okunamadı. Sayfayı yenileyip tekrar dene.", "info"),
+        409 or 410 => ("İşlem tamamlanamadı", "Bu işlem şu an yapılamıyor.", "info"),
+        _ => ("Bir şeyler ters gitti", "Beklenmeyen bir hata oluştu. Ekibimiz kayıtları inceleyebilir; birkaç dakika sonra tekrar dene.", "info"),
+    };
+    ViewData["Title"] = title;
+}
+<main class="page page-narrow">
+    <div class="empty status-page" style="padding:96px 16px">
+        @Ui.Icon(icon)
+        <p class="eyebrow">Hata @Model.Code</p>
+        <h1 class="title2">@title</h1>
+        <p class="subhead">@(Model.Message ?? text)</p>
+        @if (Model.TraceId is not null)
+        {
+            <p class="caption">Hata kodu: <span class="num">@Model.TraceId</span></p>
+        }
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+            <a class="btn btn-primary" href="/">Keşfet'e Dön</a>
+            @if (Model.Code is 401 or 403 && !User.IsSignedIn())
+            {
+                <a class="btn btn-gray" href="/giris">Giriş Yap</a>
+            }
+        </div>
+    </div>
+</main>

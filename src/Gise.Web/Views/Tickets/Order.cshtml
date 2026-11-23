@@ -1,0 +1,25 @@
+@model Order
+@{
+    ViewData["Page"] = "order";
+    var qr = (Dictionary<int, string>)ViewData["Qr"]!;
+    var tickets = Model.Tickets.OrderBy(t => t.Id).ToList();
+}
+<main class="page page-narrow">
+    <div class="success-head">
+        <div class="check">@Ui.Icon("check", "", 2.6)</div>
+        <h1 class="title1">Biletlerin hazır</h1>
+        <p class="subhead">Sipariş <span class="num">@Model.Code</span> · @Ui.Tl(Model.Total) · Visa •••• @Model.CardLast4</p>
+        <p class="footnote">@tickets.Count bilet · Her birinin ayrı QR kodu var; arkadaşlarına ayrı ayrı gösterebilirsin.</p>
+    </div>
+    <div class="passes">
+        @foreach (var t in tickets)
+        {
+            <partial name="_Pass" model="new PassVm(t, Model, Model.Event!, qr[t.Id])" />
+        }
+    </div>
+    <div class="no-print" style="display:flex;gap:12px;justify-content:center;margin-top:28px;flex-wrap:wrap">
+        <a class="btn btn-primary btn-large" href="/profil">Biletlerime Git</a>
+        <button class="btn btn-gray btn-large" type="button" onclick="window.print()">Yazdır / PDF</button>
+        <a class="btn btn-gray btn-large" href="/">Keşfet'e Dön</a>
+    </div>
+</main>

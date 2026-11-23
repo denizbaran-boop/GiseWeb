@@ -1,0 +1,160 @@
+@inject IClock Clock
+@model ProfileVm
+@{
+    ViewData["Page"] = "profile";
+    var me = Model.Me;
+    var isOrg = me.Role == UserRole.Organizer;
+    var segs = new List<(string key, string q, string label)> { ("upcoming", "", "Yaklaşan"), ("past", "gecmis", "Geçmiş") };
+    if (isOrg) segs.Add(("mine", "etkinliklerim", "Etkinliklerim"));
+    var refundDeadline = TicketingService.RefundWindow;
+}
+<main class="page">
+    <div class="profile-grid">
+        <div>
+            <section class="me">
+                @Ui.Avatar(me.FullName)
+                <h1 class="title2">@me.FullName</h1>
+                <p class="subhead">@@@me.Username</p>
+                <span class="pill @(me.Role == UserRole.Attendee ? "neutral" : "accent")" style="margin-top:6px">@Roles.Label(me.Role)@(me.OrganizationName is null ? "" : " · " + me.OrganizationName)</span>
+                <div class="me-stats">
+                    <div><b class="num" id="activeCount">@Model.ActiveCount</b><span class="caption">Aktif bilet</span></div>
+                    <div><b class="num">@Model.AttendedCount</b><span class="caption">Katıldığı etkinlik</span></div>
+                </div>
+            </section>
+            <p class="section-head">Hesap</p>
+            <ul class="list">
+                <li><a class="row" href="/ayarlar"><span class="row-icon" style="background:#8E8E93">@Ui.Icon("gear", "i-sm", 2)</span><span class="row-main"><span class="row-title">Hesap Ayarları</span><span class="row-sub" style="display:block">Kullanıcı adı, e-posta, şifre</span></span>@Ui.Icon("chevR", "chev i-sm", 2.2)</a></li>
+                <li class="row"><span class="row-icon" style="background:#FF3B30">@Ui.Icon("bell", "i-sm", 2)</span><span class="row-main"><label class="row-title" for="notif">Etkinlik hatırlatmaları</label></span><span class="switch"><input type="checkbox" id="notif" role="switch" checked="@me.RemindersEnabled"><span></span></span></li>
+                <li class="row"><span class="row-icon" style="background:#5E5CE6">@Ui.Icon("circleHalf", "i-sm", 2)</span><span class="row-main"><span class="row-title">Görünüm</span></span>
+                    <div class="seg" role="group" aria-label="Görünüm" id="themeSeg">
+                        <button type="button" data-act="theme" data-v="system" style="height:30px;padding:0 12px;font-size:13px">Sistem</button>
+                        <button type="button" data-act="theme" data-v="light" style="height:30px;padding:0 12px;font-size:13px">Açık</button>
+                        <button type="button" data-act="theme" data-v="dark" style="height:30px;padding:0 12px;font-size:13px">Koyu</button>
+                    </div></li>
+                <li><form method="post" asp-antiforgery="true" action="/cikis"><button class="row" type="submit"><span class="row-icon" style="background:var(--bad)">@Ui.Icon("out", "i-sm", 2)</span><span class="row-main"><span class="row-title" style="color:var(--bad)">Çıkış Yap</span></span></button></form></li>
+            </ul>
+            <p class="section-foot">Üyelik: @Ui.MonthYear(me.CreatedAt) · @me.Email</p>
+        </div>
+
+        <section aria-labelledby="tk">
+            <div class="page-head" style="margin-bottom:18px">
+                <h2 class="large-title" id="tk">@(Model.Tab == "mine" ? "Etkinliklerim" : "Biletlerim")</h2>
+                <nav class="seg" aria-label="Bilet listesi">
+                    @foreach (var s in segs)
+                    {
+                        <a href="/profil@(s.q == "" ? "" : "?sekme=" + s.q)" aria-pressed="@(Model.Tab == s.key ? "true" : "false")" aria-current="@(Model.Tab == s.key ? "page" : null)">@s.label</a>
+                    }
+                </nav>
+            </div>
+
+            @if (Model.Tab == "upcoming")
+            {
+                if (Model.Upcoming.Count == 0)
+                {
+                    <div class="empty">@Ui.Icon("ticket")<p class="headline">Yaklaşan biletin yok</p><a class="btn btn-primary" href="/">Etkinliklere Göz At</a></div>
+                }
+                else
+                {
+                    <div class="stubs" id="stubs">
+                        @foreach (var r in Model.Upcoming)
+                        {
+                            var refundable = r.Event.StartsAt - Clock.Now > refundDeadline;
+                            <div class="stub" data-ticket="@r.Ticket.Id">
+                                <div class="stub-art"><img src="@r.Event.CoverImage" alt=""></div>
+                                <div class="stub-main">
+                                    <p class="headline">@r.Event.Title</p>
+                                    <p class="subhead">@Ui.ShortDate(r.Event.StartsAt)</p>
+                                    <p class="footnote">@r.Event.Venue, @r.Event.District · @r.Tier.Name · <span class="num">@r.Ticket.Code</span></p>
+                                </div>
+                                <span class="notch t"></span><span class="notch b"></span>
+                                <div class="stub-side">
+                                    <button class="btn btn-tinted btn-sm" data-act="showPass" data-id="@r.Ticket.Id">@Ui.Icon("qr", "i-sm", 2)Bileti Göster</button>
+                                    @if (r.Ticket.Status == TicketStatus.Issued)
+                                    {
+                                        <button class="btn btn-plain btn-sm cancel-btn" data-act="cancelTicket" data-id="@r.Ticket.Id" data-title="@r.Event.Title" data-price="@Ui.Tl(r.Tier.Price)" data-refundable="@(refundable ? "1" : "0")">İptal Et</button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else if (Model.Tab == "past")
+            {
+                if (Model.Past.Count == 0)
+                {
+                    <div class="empty">@Ui.Icon("ticket")<p class="headline">Geçmiş biletin yok</p><p class="subhead">Katıldığın etkinlikler burada listelenir.</p></div>
+                }
+                else
+                {
+                    <div class="stubs">
+                        @foreach (var r in Model.Past)
+                        {
+                            var cancelled = r.Ticket.Status == TicketStatus.Cancelled;
+                            <div class="stub" style="opacity:.85">
+                                <div class="stub-art"><img src="@r.Event.CoverImage" alt="" style="filter:grayscale(.6)"></div>
+                                <div class="stub-main"><p class="headline">@r.Event.Title</p><p class="subhead">@Ui.DayMonthYear(r.Event.StartsAt) · @r.Event.Venue</p><p class="footnote">@r.Tier.Name · <span class="num">@r.Ticket.Code</span></p></div>
+                                <span class="notch t"></span><span class="notch b"></span>
+                                <div class="stub-side">
+                                    @if (cancelled) { <span class="pill bad">İptal edildi</span> }
+                                    else if (r.Ticket.Status == TicketStatus.Redeemed) { <span class="pill neutral">@Ui.Icon("check", "i-sm", 2.4)Katıldın</span> }
+                                    else { <span class="pill neutral">Kullanılmadı</span> }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="org-summary">
+                    <div class="stat"><span class="footnote">Satılan bilet</span><b class="num">@Ui.Num(Model.MyEvents.Sum(x => x.Sold))</b></div>
+                    <div class="stat"><span class="footnote">Toplam ciro</span><b class="num">@Ui.Tl(Model.MyEvents.Sum(x => x.Revenue))</b></div>
+                    <div class="stat"><span class="footnote">Yayında</span><b class="num">@Model.MyEvents.Count(x => x.Event.Status == EventStatus.Published && x.Event.StartsAt > Clock.Now)</b></div>
+                </div>
+                <ul class="list no-icons" id="myEvents">
+                    @foreach (var x in Model.MyEvents)
+                    {
+                        var pct = x.Capacity == 0 ? 0 : (int)Math.Round(x.Sold * 100.0 / x.Capacity);
+                        var past = x.Event.StartsAt <= Clock.Now;
+                        <li class="row my-event" style="min-height:84px" data-event="@x.Event.Id">
+                            <img src="@x.Event.CoverImage" alt="" style="width:52px;height:64px;border-radius:10px;object-fit:cover">
+                            <div class="row-main">
+                                <p class="row-title">@x.Event.Title</p>
+                                <p class="row-sub">@Ui.ShortDate(x.Event.StartsAt) · @x.Event.Venue</p>
+                                <div class="sales"><div class="progress" style="width:200px"><span style="width:@(pct)%"></span></div><span class="caption num">@Ui.Num(x.Sold) / @Ui.Num(x.Capacity) satıldı · @Ui.Tl(x.Revenue)@(x.Issued > 0 ? $" · {x.CheckedIn}/{x.Issued} giriş" : "")</span></div>
+                            </div>
+                            <span data-status-pill>
+                                @if (past) { <span class="pill neutral">Sona erdi</span> }
+                                else if (x.Event.Status == EventStatus.Published) { <span class="pill ok"><span class="dot"></span>Yayında</span> }
+                                else if (x.Event.Status == EventStatus.Draft) { <span class="pill warn">Taslak</span> }
+                                else { <span class="pill bad">Yayında değil</span> }
+                            </span>
+                            <div class="row-actions">
+                                @if (!past && x.Event.Status != EventStatus.Published)
+                                {
+                                    <button class="btn btn-tinted btn-sm" data-act="setStatus" data-id="@x.Event.Id" data-v="Published">Yayınla</button>
+                                }
+                                else if (!past)
+                                {
+                                    <a class="btn btn-gray btn-sm" href="/giris-kontrol?etkinlik=@x.Event.Id">Giriş Kontrolü</a>
+                                }
+                                @if (!past)
+                                {
+                                    <a class="btn btn-gray btn-sm" href="/etkinlik/@x.Event.Id/duzenle">Düzenle</a>
+                                }
+                                <a class="btn btn-gray btn-sm" href="/etkinlik/@x.Event.Id">Görüntüle</a>
+                                @if (x.Sold == 0)
+                                {
+                                    <button class="btn btn-ban btn-sm" data-act="deleteEvent" data-id="@x.Event.Id" data-title="@x.Event.Title">Sil</button>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+                <p class="section-foot"><a class="link" href="/etkinlik/yeni">Yeni etkinlik oluştur</a></p>
+            }
+        </section>
+    </div>
+</main>
+@section Scripts { <script src="~/js/profile.js" asp-append-version="true"></script> }

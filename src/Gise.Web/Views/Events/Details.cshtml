@@ -1,0 +1,105 @@
+@model EventDetailsVm
+@{
+    var e = Model.Event;
+    ViewData["Page"] = "event";
+    var tiers = e.Tiers.OrderBy(t => t.SortOrder).ToList();
+    var left = EventQueryService.Left(e);
+    var org = e.Organizer?.OrganizationName ?? e.Organizer?.FullName;
+    var maxForMe = Math.Max(0, TicketingService.MaxPerUserPerEvent - Model.OwnedTickets);
+}
+<main class="page">
+    <a class="back" href="/">@Ui.Icon("chevL", "", 2.2)Keşfet</a>
+    <section class="hero">
+        <img src="@e.CoverImage" alt="@e.Title afişi">
+        <div class="hero-shade"></div>
+        <div class="hero-text">
+            <span class="eyebrow" style="color:rgba(255,255,255,.88);margin:0">@e.Category · @org</span>
+            <h1 class="large-title">@e.Title</h1>
+            <p>@Ui.LongDate(e.StartsAt) · @e.Venue</p>
+        </div>
+    </section>
+
+    @if (Model.Notice is not null)
+    {
+        <p class="msg note-banner" role="status">@Ui.Icon("info", "i-sm")<span>@Model.Notice</span></p>
+    }
+    @if (Model.IsOwner)
+    {
+        <div class="owner-bar">
+            <span class="footnote">@Ui.Icon("chart", "i-sm") @Ui.Num(e.Tiers.Sum(t => t.Sold)) / @Ui.Num(EventQueryService.Capacity(e)) bilet satıldı · @Ui.Tl(e.Tiers.Sum(t => t.Sold * t.Price)) ciro</span>
+            <div class="row-actions">
+                @if (Model.Editable)
+                {
+                    <a class="btn btn-gray btn-sm" href="/etkinlik/@e.Id/duzenle">Düzenle</a>
+                }
+                @if (e.Status == EventStatus.Published && Model.Editable)
+                {
+                    <a class="btn btn-tinted btn-sm" href="/giris-kontrol?etkinlik=@e.Id">@Ui.Icon("scan", "i-sm", 2)Giriş Kontrolü</a>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="detail-grid">
+        <div>
+            <ul class="list">
+                <li class="row"><span class="row-icon" style="background:#FF3B30">@Ui.Icon("cal", "i-sm", 2)</span><div class="row-main"><p class="row-sub">Tarih</p><p class="row-title">@Ui.LongDate(e.StartsAt)</p></div></li>
+                <li class="row"><span class="row-icon" style="background:#FF9500">@Ui.Icon("clock", "i-sm", 2)</span><div class="row-main"><p class="row-sub">Saat</p><p class="row-title">@e.StartsAt.ToString("HH:mm") · Kapılar @e.DoorsAt.ToString("HH:mm")</p></div></li>
+                <li class="row"><span class="row-icon" style="background:#34C759">@Ui.Icon("pin", "i-sm", 2)</span><div class="row-main"><p class="row-sub">Mekân</p><p class="row-title">@e.Venue, @e.District</p></div>
+                    <a class="btn btn-gray btn-sm" href="https://www.openstreetmap.org/search?query=@Uri.EscapeDataString(e.Venue + " " + e.City)" target="_blank" rel="noopener">Yol Tarifi @Ui.Icon("arrowUR", "i-sm")</a></li>
+                <li class="row"><span class="row-icon" style="background:#5E5CE6">@Ui.Icon("people", "i-sm", 2)</span><div class="row-main"><p class="row-sub">Organizatör</p><p class="row-title">@org</p></div></li>
+                <li class="row"><span class="row-icon" style="background:#8E8E93">@Ui.Icon("info", "i-sm", 2)</span><div class="row-main"><p class="row-sub">Yaş sınırı</p><p class="row-title">@e.AgeLimit</p></div></li>
+            </ul>
+            <h2 class="title3" style="margin:32px 0 10px">Hakkında</h2>
+            @foreach (var para in e.Description.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                <p class="prose">@para</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(e.Tags))
+            {
+                <div class="tags">@foreach (var tag in e.Tags.Split(' ', StringSplitOptions.RemoveEmptyEntries)) { <span class="pill neutral">@tag</span> }</div>
+            }
+            <h2 class="title3" style="margin:32px 0 10px">Bilmen gerekenler</h2>
+            <ul class="list no-icons">
+                <li class="row"><div class="row-main"><p class="row-title">İade</p><p class="row-sub">Etkinlikten 48 saat öncesine kadar Profil'den iptal edip ücret iadesi alabilirsin.</p></div></li>
+                <li class="row"><div class="row-main"><p class="row-title">Girişte QR kod</p><p class="row-sub">Her biletin ayrı bir QR kodu var; çıktı almana gerek yok.</p></div></li>
+                <li class="row"><div class="row-main"><p class="row-title">Kişi başı en fazla @TicketingService.MaxPerUserPerEvent bilet</p><p class="row-sub">Karaborsayı önlemek için sınırlı.</p></div></li>
+            </ul>
+        </div>
+
+        <aside class="buy" aria-label="Bilet seçimi" id="buy"
+               data-event-id="@e.Id" data-signed-in="@(User.IsSignedIn() ? "1" : "0")" data-max="@maxForMe" data-can-buy="@(Model.CanBuy ? "1" : "0")"
+               data-title="@e.Title" data-meta="@Ui.ShortDate(e.StartsAt) · @e.Venue" data-cover="@e.CoverImage">
+            <h2 class="title3" style="margin-bottom:4px">Bilet seç</h2>
+            <p class="footnote" style="margin-bottom:6px">
+                @if (left > 0 && left <= 50) { <span style="color:var(--warn);font-weight:600">Son @left bilet. </span> }
+                Fiyatlara hizmet bedeli dahil.
+            </p>
+            @if (Model.OwnedTickets > 0)
+            {
+                <p class="footnote owned">@Ui.Icon("ticket", "i-sm") Bu etkinlik için @Model.OwnedTickets biletin var. <a class="link" href="/profil">Biletlerim</a></p>
+            }
+            @foreach (var t in tiers)
+            {
+                var sold = t.Available == 0;
+                <div class="tier" data-tier="@t.Id" data-name="@t.Name" data-price="@t.Price" data-available="@t.Available">
+                    <div class="tier-main"><p class="headline">@t.Name</p><p class="footnote">@if (sold) {<span class="pill neutral">Tükendi</span>} else { @(t.Description ?? (t.Available <= 20 ? $"Son {t.Available}" : "")) }</p></div>
+                    <span class="tier-price">@Ui.Tl(t.Price)</span>
+                    @if (!sold && Model.CanBuy)
+                    {
+                        <div class="stepper" role="group" aria-label="@t.Name bilet adedi">
+                            <button type="button" data-act="qty" data-d="-1" aria-label="@t.Name azalt" disabled>@Ui.Icon("minus", "i-sm", 2.2)</button>
+                            <output aria-live="polite">0</output>
+                            <button type="button" data-act="qty" data-d="1" aria-label="@t.Name arttır">@Ui.Icon("plus", "i-sm", 2.2)</button>
+                        </div>
+                    }
+                </div>
+            }
+            <div class="total"><span class="subhead" id="totalLabel">Toplam</span><b id="totalValue">₺0</b></div>
+            <p class="msg err" id="buyErr" hidden role="alert">@Ui.Icon("info", "i-sm")<span></span></p>
+            <button class="btn btn-primary btn-large btn-block" data-act="checkout" id="checkoutBtn" disabled>@(Model.CanBuy ? "Bilet Seç" : "Satış kapalı")</button>
+            <p class="caption" style="text-align:center;margin-top:8px">Seçtiğin biletler ödeme için 10 dakika ayrılır.</p>
+        </aside>
+    </div>
+</main>
+@section Scripts { <script src="~/js/event.js" asp-append-version="true"></script> }

@@ -1,0 +1,17 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+
+# Local database and uploads
+*.db
+*.db-shm
+*.db-wal
+src/Gise.Web/wwwroot/uploads/
+
+# Secrets
+appsettings.*.local.json
+.DS_Store

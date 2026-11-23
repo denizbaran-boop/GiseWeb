@@ -1,0 +1,107 @@
+@model EventFormVm
+@{
+    ViewData["Page"] = "create";
+    if (Model.Tiers.Count == 0) Model.Tiers.Add(new TierFormVm());
+}
+<main class="page">
+    <form id="cf" method="post" asp-antiforgery="true" action="@(Model.IsEdit ? $"/etkinlik/{Model.Id}/duzenle" : "/etkinlik/yeni")" enctype="multipart/form-data" novalidate>
+        <div class="page-head">
+            <div><p class="eyebrow">@(Model.IsEdit ? "Düzenleniyor" : ViewData["Org"] + " adına")</p><h1 class="large-title">@(Model.IsEdit ? Model.Title : "Yeni Etkinlik")</h1></div>
+            <div style="display:flex;gap:10px">
+                @if (Model.IsEdit && Model.CurrentStatus == EventStatus.Published)
+                {
+                    <a class="btn btn-gray" href="/etkinlik/@Model.Id">Vazgeç</a>
+                    <button class="btn btn-primary" type="submit" name="Intent" value="save" data-intent="save">Değişiklikleri Kaydet</button>
+                }
+                else
+                {
+                    <button class="btn btn-gray" type="submit" name="Intent" value="@(Model.IsEdit ? "save" : "draft")" data-intent="draft">@(Model.IsEdit ? "Kaydet" : "Taslak Olarak Kaydet")</button>
+                    <button class="btn btn-primary" type="submit" name="Intent" value="publish" data-intent="publish">Yayınla</button>
+                }
+            </div>
+        </div>
+        @if (Model.IsEdit)
+        {
+            <input type="hidden" asp-for="Id">
+        }
+
+        <div asp-validation-summary="All" class="msg err summary" id="cErr" role="alert"></div>
+
+        <div class="create-grid">
+            <div>
+                <p class="section-head" style="margin-top:0">Temel bilgiler</p>
+                <div class="fieldset">
+                    <div class="field"><label asp-for="Title">Etkinlik adı</label><input class="input" asp-for="Title" placeholder="ör. Kampüs Caz Gecesi" data-k="title"><span asp-validation-for="Title" class="field-error"></span></div>
+                    <div class="two">
+                        <div class="field"><label asp-for="Category">Kategori</label><select class="input" asp-for="Category" asp-items="@(new SelectList(Catalog.Categories))" data-k="cat"></select></div>
+                        <div class="field"><label asp-for="AgeLimit">Yaş sınırı</label><select class="input" asp-for="AgeLimit" asp-items="@(new SelectList(Catalog.AgeLimits))"></select></div>
+                    </div>
+                    <div class="field">
+                        <div class="label-row"><label asp-for="Description">Açıklama</label>
+                            <button type="button" class="btn btn-tinted btn-sm ai-write" data-act="aiCopy" id="aiCopy">@Ui.Icon("sparkle", "i-sm", 2)<span>AI ile yaz</span></button></div>
+                        <textarea class="input" asp-for="Description" placeholder="Katılımcılar neyle karşılaşacak? Program, süre, dahil olanlar…" rows="6"></textarea>
+                        <span asp-validation-for="Description" class="field-error"></span>
+                        <p class="caption" id="aiNote" hidden></p>
+                    </div>
+                    <div class="field"><label asp-for="Tags">Etiketler</label><input class="input" asp-for="Tags" placeholder="#Caz #CanlıMüzik"><span asp-validation-for="Tags" class="field-error"></span></div>
+                </div>
+
+                <p class="section-head">Tarih ve mekân</p>
+                <div class="fieldset">
+                    <div class="two">
+                        <div class="field"><label asp-for="Date">Tarih</label><input class="input" asp-for="Date" type="date" min="@ViewData["MinDate"]" data-k="date"><span asp-validation-for="Date" class="field-error"></span></div>
+                        <div class="field"><label asp-for="Time">Saat</label><input class="input" asp-for="Time" type="time" data-k="time"><span asp-validation-for="Time" class="field-error"></span></div>
+                    </div>
+                    <div class="two">
+                        <div class="field"><label asp-for="Venue">Mekân</label><input class="input" asp-for="Venue" placeholder="ör. Salon İKSV" data-k="venue"><span asp-validation-for="Venue" class="field-error"></span></div>
+                        <div class="field"><label asp-for="District">İlçe</label><input class="input" asp-for="District" placeholder="ör. Beyoğlu" data-k="district"><span asp-validation-for="District" class="field-error"></span></div>
+                    </div>
+                    <div class="field" style="max-width:50%"><label asp-for="Doors">Kapı açılışı (isteğe bağlı)</label><input class="input" asp-for="Doors" type="time"><span asp-validation-for="Doors" class="field-error"></span></div>
+                </div>
+
+                <p class="section-head">Kapak</p>
+                <div class="fieldset">
+                    <div class="cover-pick" role="radiogroup" aria-label="Kapak görseli">
+                        @if (Model.CurrentCover is not null)
+                        {
+                            <label class="cover-opt" aria-label="Mevcut kapak"><input type="radio" class="sr" name="CoverPreset" value="0" data-src="@Model.CurrentCover" checked="@(Model.CoverPreset == 0)"><img src="@Model.CurrentCover" alt=""><span class="tick">@Ui.Icon("check", "i-sm", 2.6)</span><span class="cover-label">Mevcut</span></label>
+                        }
+                        @for (int i = 1; i <= Catalog.CoverPresets; i++)
+                        {
+                            <label class="cover-opt" aria-label="Kapak @i"><input type="radio" class="sr" name="CoverPreset" value="@i" checked="@(Model.CoverPreset == i && Model.CoverUpload is null)"><img src="/img/covers/@(i).jpg" alt=""><span class="tick">@Ui.Icon("check", "i-sm", 2.6)</span></label>
+                        }
+                        <label class="cover-opt upload">@Ui.Icon("photo")Yükle<input type="file" accept="image/jpeg,image/png,image/webp" asp-for="CoverUpload" aria-label="Kapak görseli yükle"></label>
+                    </div>
+                    <span asp-validation-for="CoverUpload" class="field-error"></span>
+                    <p class="footnote">JPG, PNG ya da WEBP, en fazla 3 MB. Önerilen oran 4:5; afişte yazı olmamasını öneririz.</p>
+                </div>
+
+                <p class="section-head">Biletler</p>
+                <div class="fieldset" id="tierBox">
+                    @for (int i = 0; i < Model.Tiers.Count; i++)
+                    {
+                        <div class="tier-edit" data-row>
+                            <div class="field"><input type="hidden" asp-for="Tiers[i].Id" data-n="Id"><label for="Tiers_@(i)__Name">Bilet türü</label><input class="input" asp-for="Tiers[i].Name" placeholder="ör. Tam" data-f="name"><span asp-validation-for="Tiers[i].Name" class="field-error"></span></div>
+                            <div class="field"><label for="Tiers_@(i)__Price">Fiyat (₺)</label><input class="input num" asp-for="Tiers[i].Price" type="text" inputmode="numeric" placeholder="0" data-f="price"><span asp-validation-for="Tiers[i].Price" class="field-error"></span></div>
+                            <div class="field"><label for="Tiers_@(i)__Capacity">Kontenjan</label><input class="input num" asp-for="Tiers[i].Capacity" type="text" inputmode="numeric" placeholder="100" data-f="cap"><span asp-validation-for="Tiers[i].Capacity" class="field-error"></span></div>
+                            <button type="button" class="icon-btn" data-act="rmTier" aria-label="Bilet türünü sil">@Ui.Icon("trash", "i-sm")</button>
+                        </div>
+                    }
+                    <button type="button" class="btn btn-tinted" data-act="addTier" id="addTier" style="justify-self:start">@Ui.Icon("plus", "i-sm", 2.2)Bilet Türü Ekle</button>
+                </div>
+                <span asp-validation-for="Tiers" class="field-error" style="margin:0 18px"></span>
+                <p class="section-foot">Fiyatları hizmet bedeli dahil gir. En fazla 5 bilet türü; kontenjan dolunca "Tükendi" görünür.</p>
+            </div>
+            <aside class="preview-wrap" aria-label="Önizleme"><p class="section-head" style="margin:0 2px">Keşfet'te böyle görünecek</p><div id="pv"></div></aside>
+        </div>
+    </form>
+    <template id="tierTpl">
+        <div class="tier-edit" data-row>
+            <div class="field"><label>Bilet türü</label><input class="input" data-f="name" data-n="Name" placeholder="ör. Öğrenci" maxlength="30" data-val="true" data-val-required="Bilet türü adını gir."><span class="field-error" data-valmsg-for></span></div>
+            <div class="field"><label>Fiyat (₺)</label><input class="input num" data-f="price" data-n="Price" inputmode="numeric" placeholder="0" data-val="true" data-val-required="Fiyat gir." data-val-range="Fiyat 1 ile 100.000 ₺ arasında olmalı." data-val-range-min="1" data-val-range-max="100000"><span class="field-error" data-valmsg-for></span></div>
+            <div class="field"><label>Kontenjan</label><input class="input num" data-f="cap" data-n="Capacity" inputmode="numeric" placeholder="100" data-val="true" data-val-required="Kontenjan gir." data-val-range="Kontenjan 1 ile 100.000 arasında olmalı." data-val-range-min="1" data-val-range-max="100000"><span class="field-error" data-valmsg-for></span></div>
+            <button type="button" class="icon-btn" data-act="rmTier" aria-label="Bilet türünü sil">@Ui.Icon("trash", "i-sm")</button>
+        </div>
+    </template>
+</main>
+@section Scripts { <script src="~/js/create.js" asp-append-version="true"></script> }

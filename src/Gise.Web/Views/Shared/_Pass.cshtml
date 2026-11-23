@@ -1,0 +1,40 @@
+@model PassVm
+@{
+    var e = Model.Event;
+    var t = Model.Ticket;
+    var (pill, label) = t.Status switch
+    {
+        TicketStatus.Redeemed => ("neutral", $"Kullanıldı · {t.RedeemedAt:HH:mm}"),
+        TicketStatus.Cancelled => ("bad", "İptal edildi"),
+        _ => ("", "")
+    };
+}
+<article class="pass@(t.Status != TicketStatus.Issued ? " pass-used" : "")" aria-label="Bilet: @e.Title, @t.Tier?.Name">
+    <div class="pass-top">
+        <img src="@e.CoverImage" alt="">
+        <div class="pass-brand">@Ui.Logo(22)Gişe<span style="margin-left:auto;font-weight:600;opacity:.9">@t.Tier?.Name</span></div>
+        <div>
+            <p class="caption" style="color:rgba(255,255,255,.85);font-weight:600">@e.Venue, @e.District</p>
+            <h2 class="pass-title">@e.Title</h2>
+        </div>
+    </div>
+    <div class="perf"><span class="notch l"></span><span class="notch r"></span></div>
+    <div class="pass-fields">
+        <div><div class="k">Tarih</div><div class="v">@Ui.DayMonth(e.StartsAt)</div></div>
+        <div><div class="k">Saat</div><div class="v">@e.StartsAt.ToString("HH:mm")</div></div>
+        <div><div class="k">Kapı</div><div class="v">@e.DoorsAt.ToString("HH:mm")</div></div>
+        <div><div class="k">Tür</div><div class="v">@t.Tier?.Name</div></div>
+    </div>
+    <div class="pass-qr">
+        <div class="qr">@Html.Raw(Model.QrSvg)</div>
+        <p class="ticket-code num" aria-label="Bilet kodu @t.Code">@t.Code</p>
+        @if (pill != "")
+        {
+            <span class="pill @pill">@label</span>
+        }
+        else
+        {
+            <p class="caption">Sipariş @Model.Order.Code · Girişte bu kodu göster</p>
+        }
+    </div>
+</article>

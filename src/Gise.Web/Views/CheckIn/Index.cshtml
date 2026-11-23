@@ -1,0 +1,53 @@
+@model List<Event>
+@inject IWebHostEnvironment Env
+@inject Gise.Web.Data.GiseDbContext Db
+@{
+    ViewData["Page"] = "checkin";
+    var selected = ViewData["Selected"] as int?;
+    // Development only: a few unused codes so the flow can be tried without a phone.
+    var demoCodes = Env.IsDevelopment() && selected is { } sid
+        ? Db.Tickets.Where(t => t.Order!.EventId == sid && t.Status == TicketStatus.Issued).OrderBy(t => t.Id).Select(t => t.Code).Take(3).ToList()
+        : new List<string>();
+}
+<main class="page page-narrow">
+    <div class="page-head"><div><p class="eyebrow">Organizatör</p><h1 class="large-title">Giriş Kontrolü</h1></div></div>
+    @if (Model.Count == 0)
+    {
+        <div class="empty">@Ui.Icon("scan")<p class="headline">Kontrol edilecek etkinlik yok</p><p class="subhead">Yayındaki yaklaşan etkinliklerin burada listelenir.</p><a class="btn btn-primary" href="/etkinlik/yeni">Etkinlik Oluştur</a></div>
+    }
+    else
+    {
+        <form id="checkinForm" class="checkin" novalidate>
+            <div class="fieldset">
+                <div class="field">
+                    <label for="eventId">Etkinlik</label>
+                    <select class="input" id="eventId" name="eventId">
+                        @foreach (var e in Model)
+                        {
+                            <option value="@e.Id" selected="@(e.Id == selected)">@e.Title · @Ui.DayMonth(e.StartsAt)</option>
+                        }
+                    </select>
+                </div>
+                <div class="checkin-counter" aria-live="polite"><b class="num" id="ciCount">–</b><span class="footnote" id="ciLabel">giriş yapıldı</span><div class="progress"><span id="ciBar" style="width:0%"></span></div></div>
+                <div class="field">
+                    <label for="code">Bilet kodu veya QR içeriği</label>
+                    <div class="code-row">
+                        <input class="input num" id="code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ör. 7KQP-9XAM" required>
+                        <button type="button" class="btn btn-gray" data-act="scan" id="scanBtn" hidden>@Ui.Icon("scan", "i-sm", 2)Kamera</button>
+                        <button type="submit" class="btn btn-primary">Kontrol Et</button>
+                    </div>
+                    <span class="field-error" data-valmsg-for="code"></span>
+                </div>
+                <video id="cam" playsinline muted hidden aria-label="Kamera önizlemesi"></video>
+            </div>
+        </form>
+        <div id="ciResult" class="ci-result" role="status" aria-live="assertive" hidden></div>
+        <p class="section-head">Son kontroller</p>
+        <ul class="list no-icons" id="ciLog"><li class="row"><div class="row-main"><p class="row-sub">Henüz kontrol yapılmadı.</p></div></li></ul>
+        @if (demoCodes.Count > 0)
+        {
+            <p class="section-foot">Geliştirme modu: denemek için bu etkinliğe ait kodlar → @foreach (var c in demoCodes) { <button type="button" class="link num" data-act="fillCode" data-v="@c">@c</button><text> </text> }</p>
+        }
+    }
+</main>
+@section Scripts { <script src="~/js/checkin.js" asp-append-version="true"></script> }
