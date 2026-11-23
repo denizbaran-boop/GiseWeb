@@ -1,11 +1,12 @@
 @model List<Event>
 @inject IWebHostEnvironment Env
+@inject IConfiguration Config
 @inject Gise.Web.Data.GiseDbContext Db
 @{
     ViewData["Page"] = "checkin";
     var selected = ViewData["Selected"] as int?;
-    // Development only: a few unused codes so the flow can be tried without a phone.
-    var demoCodes = Env.IsDevelopment() && selected is { } sid
+    // Demo helper (development, or Gise:ShowDemoCodes on the demo server): a few unused codes so the flow can be tried without a phone.
+    var demoCodes = (Env.IsDevelopment() || Config.GetValue<bool>("Gise:ShowDemoCodes")) && selected is { } sid
         ? Db.Tickets.Where(t => t.Order!.EventId == sid && t.Status == TicketStatus.Issued).OrderBy(t => t.Id).Select(t => t.Code).Take(3).ToList()
         : new List<string>();
 }
@@ -46,7 +47,7 @@
         <ul class="list no-icons" id="ciLog"><li class="row"><div class="row-main"><p class="row-sub">Henüz kontrol yapılmadı.</p></div></li></ul>
         @if (demoCodes.Count > 0)
         {
-            <p class="section-foot">Geliştirme modu: denemek için bu etkinliğe ait kodlar → @foreach (var c in demoCodes) { <button type="button" class="link num" data-act="fillCode" data-v="@c">@c</button><text> </text> }</p>
+            <p class="section-foot">Demo: denemek için bu etkinliğe ait kodlar → @foreach (var c in demoCodes) { <button type="button" class="link num" data-act="fillCode" data-v="@c">@c</button><text> </text> }</p>
         }
     }
 </main>
