@@ -145,7 +145,7 @@ public class AccountApiController(GiseDbContext db, AuditService audit) : Contro
 }
 
 [ApiController, Authorize(Roles = Roles.OrganizerOrAdmin), Route("api/organizer")]
-public class OrganizerApiController(GiseDbContext db, TicketingService ticketing, CopywriterService copywriter, AuditService audit) : ControllerBase
+public class OrganizerApiController(GiseDbContext db, TicketingService ticketing, CopywriterService copywriter, EventManagementService events, AuditService audit) : ControllerBase
 {
     /// <summary>FR-07: "AI ile yaz" in the create-event form.</summary>
     [HttpPost("copy")]
@@ -166,6 +166,14 @@ public class OrganizerApiController(GiseDbContext db, TicketingService ticketing
         audit.Log(me!.Id, me.FullName, status == EventStatus.Published ? "event.publish" : "event.unpublish", $"#{ev.Id} {ev.Title}{(isAdmin && ev.OrganizerId != me.Id ? " (admin)" : "")}");
         await db.SaveChangesAsync(ct);
         return Ok(new { Status = ev.Status.ToString(), Previous = old.ToString() });
+    }
+
+    /// <summary>Deletes an event without sales (the "D" of CRUD for events).</summary>
+    [HttpDelete("events/{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    {
+        await events.DeleteAsync(User.Id(), User.IsInRole(Roles.Admin), id, ct);
+        return NoContent();
     }
 
     [HttpPost("checkin")]

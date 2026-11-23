@@ -62,7 +62,4 @@ public class HomeController(EventQueryService events, GiseDbContext db) : Contro
         return View("Status", new StatusVm(403));
     }
 
-    /// <summary>Lets the team demo the global error page without breaking anything.</summary>
-    [HttpGet("/hata-testi")]
-    public IActionResult Boom() => throw new InvalidOperationException("Hata sayfası testi (bilerek tetiklendi).");
 }

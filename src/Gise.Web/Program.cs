@@ -19,6 +19,7 @@ builder.Services.AddSingleton<QrService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<TicketingService>();
 builder.Services.AddScoped<EventQueryService>();
+builder.Services.AddScoped<EventManagementService>();
 builder.Services.AddScoped<CopywriterService>();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<HoldCleanupService>();

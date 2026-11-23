@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Gise.Web.Services;
 
 public record HoldLine(int TierId, int Quantity);
+public class CheckInCounts { public int CheckedIn { get; set; } public int Issued { get; set; } }
 public record CheckInResult(string AttendeeName, string TierName, string Code, int CheckedIn, int Issued);
 
 /// <summary>
@@ -51,9 +52,9 @@ public class TicketingService(GiseDbContext db, IClock clock, TicketTokenService
 
         foreach (var l in lines)
         {
-            var updated = await db.TicketTiers
-                .Where(t => t.Id == l.TierId && t.Sold + l.Quantity <= t.Capacity)
-                .ExecuteUpdateAsync(s => s.SetProperty(t => t.Sold, t => t.Sold + l.Quantity), ct);
+            // Check and update in one statement: no other buyer can take the seats in between.
+            var updated = await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE TicketTiers SET Sold = Sold + {l.Quantity} WHERE Id = {l.TierId} AND Sold + {l.Quantity} <= Capacity", ct);
             if (updated == 0)
             {
                 await tx.RollbackAsync(ct);
@@ -132,7 +133,7 @@ public class TicketingService(GiseDbContext db, IClock clock, TicketTokenService
 
         ticket.Status = TicketStatus.Cancelled;
         ticket.CancelledAt = now;
-        await db.TicketTiers.Where(t => t.Id == ticket.TierId && t.Sold > 0).ExecuteUpdateAsync(s => s.SetProperty(t => t.Sold, t => t.Sold - 1), ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE TicketTiers SET Sold = Sold - 1 WHERE Id = {ticket.TierId} AND Sold > 0", ct);
         var refund = ticket.Order.Items.First(i => i.TierId == ticket.TierId).UnitPrice;
         audit.Log(userId, ticket.Order.User!.FullName, "ticket.refund", $"{ticket.Code} · {ticket.Order.Event.Title} · ₺{refund} iade");
         await db.SaveChangesAsync(ct);
@@ -163,8 +164,13 @@ public class TicketingService(GiseDbContext db, IClock clock, TicketTokenService
 
     public async Task<(int CheckedIn, int Issued)> CheckInStatsAsync(int eventId, CancellationToken ct = default)
     {
-        var q = db.Tickets.Where(t => t.Order!.EventId == eventId && t.Status != TicketStatus.Cancelled);
-        return (await q.CountAsync(t => t.Status == TicketStatus.Redeemed, ct), await q.CountAsync(ct));
+        var row = await db.Database.SqlQuery<CheckInCounts>($"""
+            SELECT COALESCE(SUM(CASE WHEN t.Status = {(int)TicketStatus.Redeemed} THEN 1 ELSE 0 END), 0) AS CheckedIn,
+                   COUNT(t.Id) AS Issued
+            FROM Tickets t JOIN Orders o ON o.Id = t.OrderId
+            WHERE o.EventId = {eventId} AND t.Status <> {(int)TicketStatus.Cancelled}
+            """).SingleAsync(ct);
+        return (row.CheckedIn, row.Issued);
     }
 
     /// <summary>Releases holds whose 10 minutes are up. Called by <see cref="HoldCleanupService"/>.</summary>
@@ -180,8 +186,8 @@ public class TicketingService(GiseDbContext db, IClock clock, TicketTokenService
     private async Task ReleaseAsync(Order order, OrderStatus status, CancellationToken ct)
     {
         foreach (var item in order.Items)
-            await db.TicketTiers.Where(t => t.Id == item.TierId && t.Sold >= item.Quantity)
-                .ExecuteUpdateAsync(s => s.SetProperty(t => t.Sold, t => t.Sold - item.Quantity), ct);
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE TicketTiers SET Sold = Sold - {item.Quantity} WHERE Id = {item.TierId} AND Sold >= {item.Quantity}", ct);
         order.Status = status;
         order.ExpiresAt = null;
     }

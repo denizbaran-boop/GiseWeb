@@ -15,7 +15,8 @@
     const d = val("Date") ? new Date(val("Date") + "T" + (val("Time") || "20:00")) : new Date(Date.now() + 14 * 864e5);
     const prices = $$("[data-f=price]", box).map(i => +i.value.replace(/\D/g, "")).filter(n => n > 0);
     const caps = $$("[data-f=cap]", box).map(i => +i.value.replace(/\D/g, "")).filter(n => n > 0);
-    const cover = uploadUrl || `/img/covers/${form.querySelector('input[name="CoverPreset"]:checked')?.value || 1}.jpg`;
+    const picked = form.querySelector('input[name="CoverPreset"]:checked');
+    const cover = uploadUrl || picked?.dataset.src || `/img/covers/${picked?.value || 1}.jpg`;
     const html = card({
       url: "#", title: val("Title") || "Etkinlik adı", venue: val("Venue") || "Mekân", district: val("District") || "İlçe",
       category: val("Category"), cover, dayNum: d.getDate(), month: MON[d.getMonth()],
@@ -34,6 +35,7 @@
         input.dataset.n = prop;
         input.name = `Tiers[${i}].${prop}`;
         input.id = `Tiers_${i}__${prop}`;
+        if (input.type === "hidden") continue;
         const label = input.closest(".field").querySelector("label"); if (label) label.htmlFor = input.id;
         const err = input.closest(".field").querySelector("[data-valmsg-for]"); if (err) err.dataset.valmsgFor = input.name;
       }
@@ -70,19 +72,16 @@
     if (a.dataset.act === "aiCopy") aiCopy(a);
   });
 
-  // Publish validates everything; "draft" only needs a title.
+  // Every save (draft, publish or edit) is validated the same way here and again on the server.
   form.addEventListener("submit", e => {
-    const intent = e.submitter?.dataset.intent || "publish";
-    if (intent === "draft") {
-      if (!val("Title")) { e.preventDefault(); setError($("#Title"), "Taslak için en az etkinlik adını gir."); $("#Title").focus(); }
-      return;
-    }
     if (!validateForm(form)) {
       e.preventDefault();
-      const s = $("#cErr"); s.innerHTML = "<span>Yayınlamadan önce işaretli alanları düzelt.</span>"; s.classList.add("show");
+      const s = $("#cErr"); s.innerHTML = "<span>Kaydetmeden önce işaretli alanları düzelt.</span>"; s.classList.add("show");
       return;
     }
-    busy(e.submitter, true, "Yayınlanıyor…");
+    // A disabled submit button is not posted, so carry its Intent value in a hidden field first.
+    if (e.submitter?.name) { const h = document.createElement("input"); h.type = "hidden"; h.name = e.submitter.name; h.value = e.submitter.value; form.appendChild(h); }
+    busy(e.submitter, true, e.submitter?.dataset.intent === "publish" ? "Yayınlanıyor…" : "Kaydediliyor…");
   });
 
   // FR-07 / NFR-05: AI copy with a visible loading state and graceful failure.

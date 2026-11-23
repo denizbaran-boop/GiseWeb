@@ -23,11 +23,20 @@
     {
         <p class="msg note-banner" role="status">@Ui.Icon("info", "i-sm")<span>@Model.Notice</span></p>
     }
-    @if (Model.IsOwner && e.Status == EventStatus.Published)
+    @if (Model.IsOwner)
     {
         <div class="owner-bar">
             <span class="footnote">@Ui.Icon("chart", "i-sm") @Ui.Num(e.Tiers.Sum(t => t.Sold)) / @Ui.Num(EventQueryService.Capacity(e)) bilet satıldı · @Ui.Tl(e.Tiers.Sum(t => t.Sold * t.Price)) ciro</span>
-            <a class="btn btn-tinted btn-sm" href="/giris-kontrol?etkinlik=@e.Id">@Ui.Icon("scan", "i-sm", 2)Giriş Kontrolü</a>
+            <div class="row-actions">
+                @if (Model.Editable)
+                {
+                    <a class="btn btn-gray btn-sm" href="/etkinlik/@e.Id/duzenle">Düzenle</a>
+                }
+                @if (e.Status == EventStatus.Published && Model.Editable)
+                {
+                    <a class="btn btn-tinted btn-sm" href="/giris-kontrol?etkinlik=@e.Id">@Ui.Icon("scan", "i-sm", 2)Giriş Kontrolü</a>
+                }
+            </div>
         </div>
     }
 

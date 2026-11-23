@@ -234,3 +234,87 @@ public class TicketingTests
         Assert.Equal(403, denied.StatusCode);
     }
 }
+
+public class EventManagementTests
+{
+    private sealed class FakeEnv : Microsoft.AspNetCore.Hosting.IWebHostEnvironment
+    {
+        public string WebRootPath { get; set; } = Path.GetTempPath();
+        public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
+        public string ApplicationName { get; set; } = "Gise.Tests";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
+        public string ContentRootPath { get; set; } = Path.GetTempPath();
+        public string EnvironmentName { get; set; } = "Testing";
+    }
+
+    private static EventManagementService Service(TestDb t, GiseDbContext db) => new(db, t.Clock, new AuditService(db, t.Clock), new FakeEnv());
+
+    [Fact]
+    public async Task Edit_updates_fields_and_rejects_capacity_below_sold()
+    {
+        using var t = new TestDb();
+        var (att, org, ev, tier) = t.Seed(capacity: 10);
+        await using (var db = t.Context()) await t.Service(db).HoldAsync(att.Id, ev.Id, [new HoldLine(tier.Id, 4)]);
+
+        await using (var db = t.Context())
+        {
+            var svc = Service(t, db);
+            var form = EventManagementService.ToForm(await svc.GetEditableAsync(org.Id, false, ev.Id));
+            form.Title = "Yeni Başlık";
+            form.Tiers[0].Capacity = 3;
+            var ex = await Assert.ThrowsAsync<DomainException>(() => svc.UpdateAsync(org.Id, false, ev.Id, form, null));
+            Assert.Contains("(4)", ex.Message);
+        }
+        await using (var db = t.Context())
+        {
+            var svc = Service(t, db);
+            var form = EventManagementService.ToForm(await svc.GetEditableAsync(org.Id, false, ev.Id));
+            form.Title = "Yeni Başlık";
+            form.Tiers[0].Capacity = 20;
+            form.Tiers.Add(new() { Name = "VIP", Price = 300, Capacity = 5 });
+            await svc.UpdateAsync(org.Id, false, ev.Id, form, null);
+        }
+        await using (var db = t.Context())
+        {
+            var saved = await db.Events.Include(e => e.Tiers).FirstAsync(e => e.Id == ev.Id);
+            Assert.Equal("Yeni Başlık", saved.Title);
+            Assert.Equal(20, saved.Tiers.First(x => x.Id == tier.Id).Capacity);
+            Assert.Equal(2, saved.Tiers.Count);
+        }
+    }
+
+    [Fact]
+    public async Task Other_organizers_cannot_edit_or_delete()
+    {
+        using var t = new TestDb();
+        var (_, _, ev, _) = t.Seed();
+        var stranger = t.NewAttendee();
+        await using var db = t.Context();
+        var svc = Service(t, db);
+        Assert.Equal(403, (await Assert.ThrowsAsync<DomainException>(() => svc.GetEditableAsync(stranger.Id, false, ev.Id))).StatusCode);
+        Assert.Equal(403, (await Assert.ThrowsAsync<DomainException>(() => svc.DeleteAsync(stranger.Id, false, ev.Id))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_is_blocked_after_sales_and_allowed_without()
+    {
+        using var t = new TestDb();
+        var (att, org, ev, tier) = t.Seed();
+        await using (var db = t.Context()) await t.Service(db).HoldAsync(att.Id, ev.Id, [new HoldLine(tier.Id, 1)]);
+        await using (var db = t.Context())
+        {
+            var ex = await Assert.ThrowsAsync<DomainException>(() => Service(t, db).DeleteAsync(org.Id, false, ev.Id));
+            Assert.Equal(409, ex.StatusCode);
+        }
+
+        t.Clock.Now = t.Clock.Now.AddMinutes(11); // hold expires → no sales left
+        await using (var db = t.Context()) await t.Service(db).ExpireStaleHoldsAsync();
+        await using (var db = t.Context()) await Service(t, db).DeleteAsync(org.Id, false, ev.Id);
+        await using (var db = t.Context())
+        {
+            Assert.False(await db.Events.AnyAsync(e => e.Id == ev.Id));
+            Assert.False(await db.TicketTiers.AnyAsync(x => x.EventId == ev.Id));
+            Assert.Contains(await db.AuditLogs.Select(a => a.Action).ToListAsync(), a => a == "event.delete");
+        }
+    }
+}

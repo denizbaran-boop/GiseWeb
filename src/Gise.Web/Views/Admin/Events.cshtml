@@ -34,7 +34,11 @@
                         {
                             <button class="btn btn-gray btn-sm" data-act="setStatus" data-id="@e.Id" data-v="Published">Yeniden Yayınla</button>
                         }
-                        else
+                        @if (sold == 0)
+                        {
+                            <button class="btn btn-ban btn-sm" data-act="deleteEvent" data-id="@e.Id" data-title="@e.Title">Sil</button>
+                        }
+                        else if (past || e.Status == EventStatus.Draft)
                         {
                             <span class="footnote">—</span>
                         }

@@ -49,8 +49,8 @@ public class AdminController(GiseDbContext db, IClock clock) : Controller
     {
         var now = clock.Now;
         var users = await db.Users.AsNoTracking().Select(u => new { u.Role, u.CreatedAt, u.BannedAt, u.BannedUntil }).ToListAsync(ct);
-        var sold = await db.Tickets.CountAsync(t => t.Status != TicketStatus.Cancelled, ct);
-        var revenue = await db.Orders.Where(o => o.Status == OrderStatus.Confirmed).SumAsync(o => o.Total, ct);
+        var sold = await db.Database.SqlQuery<int>($"SELECT COUNT(*) AS Value FROM Tickets WHERE Status <> {(int)TicketStatus.Cancelled}").SingleAsync(ct);
+        var revenue = await db.Database.SqlQuery<int>($"SELECT COALESCE(SUM(Total), 0) AS Value FROM Orders WHERE Status = {(int)OrderStatus.Confirmed}").SingleAsync(ct);
         return new AdminStats(
             users.Count, users.Count(u => u.CreatedAt > now.AddDays(-7)), users.Count(u => u.Role == UserRole.Organizer),
             users.Count(u => u.BannedAt != null && (u.BannedUntil == null || u.BannedUntil > now)),

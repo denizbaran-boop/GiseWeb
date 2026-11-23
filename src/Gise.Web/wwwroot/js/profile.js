@@ -1,6 +1,6 @@
 /* Profil: pass sheet (HTML partial via fetch), ticket refund, reminders toggle, organizer publish. */
 (function () {
-  const { $, api, esc, ic, toast, openSheet, closeSheet, sheetHead, busy } = G;
+  const { $, api, esc, ic, toast, openSheet, closeSheet, sheetHead, confirmSheet, busy } = G;
 
   document.addEventListener("click", async e => {
     const a = e.target.closest("[data-act]"); if (!a) return;
@@ -34,6 +34,20 @@
         const c = $("#activeCount"); if (c) c.textContent = Math.max(0, +c.textContent - 1);
         toast(r.message);
       } catch (err) { busy(a, false); toast(err.message, null, "bad"); }
+    }
+
+    if (act === "deleteEvent") {
+      confirmSheet({
+        title: "Etkinliği sil",
+        html: `<p class="subhead"><b>${esc(a.dataset.title)}</b> kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>`,
+        confirm: "Sil",
+        onConfirm: async () => {
+          await api(`/api/organizer/events/${a.dataset.id}`, { method: "DELETE" });
+          const row = a.closest("[data-event]");
+          row.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220 }).onfinish = () => row.remove();
+          toast("Etkinlik silindi.");
+        }
+      });
     }
 
     if (act === "setStatus") {

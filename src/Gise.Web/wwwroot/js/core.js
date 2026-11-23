@@ -235,6 +235,17 @@
     };
     el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
   }
+  /** Confirmation sheet for destructive actions; onConfirm(button) may throw an ApiError, which is shown as a toast. */
+  function confirmSheet({ title, html, confirm, onConfirm }) {
+    const sheet = openSheet(`${sheetHead(title)}${html}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px"><button class="btn btn-gray btn-large" type="button" data-act="closeSheet">Vazgeç</button><button class="btn btn-destructive btn-large" type="button" data-confirm>${esc(confirm)}</button></div>`, { label: title });
+    const btn = sheet.querySelector("[data-confirm]");
+    btn.addEventListener("click", async () => {
+      busy(btn, true, "Bekle…");
+      try { await onConfirm(); closeSheet(); }
+      catch (err) { busy(btn, false); toast(err.message, null, "bad"); }
+    });
+  }
   const sheetHead = title => `<div class="sheet-head" data-drag><h2 class="title2">${esc(title)}</h2><button class="icon-btn" type="button" data-act="closeSheet" aria-label="Kapat">${ic("x", "i-sm", 2.2)}</button></div>`;
 
   /* ---------- theme ---------- */
@@ -275,7 +286,7 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape" && sheetEl) closeSheet(); });
   window.addEventListener("unhandledrejection", e => { if (e.reason instanceof ApiError) { toast(e.reason.message, null, "bad"); e.preventDefault(); } });
 
-  window.G = { $, $$, esc, tl, num, debounce, ic, avatar, avatarBg, initials, spring, REDUCED, api, ApiError, validateForm, validateField, bindValidation, applyServerErrors, setError, busy, toast, openSheet, closeSheet, sheetHead, card, setTheme, isDark };
+  window.G = { $, $$, esc, tl, num, debounce, ic, avatar, avatarBg, initials, spring, REDUCED, api, ApiError, validateForm, validateField, bindValidation, applyServerErrors, setError, busy, toast, openSheet, closeSheet, sheetHead, confirmSheet, card, setTheme, isDark };
 
   document.addEventListener("DOMContentLoaded", () => {
     paintTheme();

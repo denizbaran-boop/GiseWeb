@@ -16,9 +16,10 @@ public class EventDetailsVm
     public string? Notice { get; init; }
     public bool IsOwner { get; init; }
     public int OwnedTickets { get; init; }
+    public bool Editable { get; init; }
 }
 
-public class EventsController(GiseDbContext db, IClock clock, AuditService audit, IWebHostEnvironment env, ILogger<EventsController> log) : Controller
+public class EventsController(GiseDbContext db, IClock clock, EventManagementService events, IWebHostEnvironment env, ILogger<EventsController> log) : Controller
 {
     [HttpGet("/etkinlik/{id:int}")]
     public async Task<IActionResult> Details(int id, CancellationToken ct)
@@ -42,63 +43,83 @@ public class EventsController(GiseDbContext db, IClock clock, AuditService audit
 
         ViewData["Title"] = ev.Title;
         ViewData["Nav"] = "kesfet";
-        return View(new EventDetailsVm { Event = ev, CanBuy = notice is null, Notice = notice, IsOwner = isOwner, OwnedTickets = owned });
+        return View(new EventDetailsVm { Event = ev, CanBuy = notice is null, Notice = notice, IsOwner = isOwner, OwnedTickets = owned, Editable = isOwner && ev.StartsAt > clock.Now });
     }
 
     [Authorize(Roles = Roles.Organizer), HttpGet("/etkinlik/yeni")]
     public async Task<IActionResult> Create()
     {
         await SetFormViewData();
-        return View(new EventFormVm { Date = DateOnly.FromDateTime(clock.Now.AddDays(14)) });
+        return View("Form", new EventFormVm { Date = DateOnly.FromDateTime(clock.Now.AddDays(14)) });
     }
 
     [Authorize(Roles = Roles.Organizer), HttpPost("/etkinlik/yeni"), RequestSizeLimit(4 * 1024 * 1024)]
     public async Task<IActionResult> Create(EventFormVm vm, CancellationToken ct)
     {
-        vm.Tiers = vm.Tiers.Where(t => !string.IsNullOrWhiteSpace(t.Name) || t.Price is not null || t.Capacity is not null).ToList();
-        if (vm.Tiers.Count == 0) ModelState.AddModelError(nameof(vm.Tiers), "En az bir bilet türü için ad, fiyat ve kontenjan gir.");
+        vm.Id = null;
+        var cover = await PrepareAsync(vm, ct);
+        if (!ModelState.IsValid) return await FormView(vm);
 
-        string? coverPath = null;
-        if (ModelState.IsValid && vm.CoverUpload is { Length: > 0 } file)
-        {
-            coverPath = await SaveCoverAsync(file, ct);
-            if (coverPath is null) ModelState.AddModelError(nameof(vm.CoverUpload), "Görsel dosyası okunamadı; JPG, PNG ya da WEBP yükle.");
-        }
-        if (!ModelState.IsValid)
-        {
-            await SetFormViewData();
-            return View(vm);
-        }
-
-        var me = await db.Users.FindAsync([User.Id()], ct);
-        var start = vm.Date!.Value.ToDateTime(vm.Time!.Value);
-        var ev = new Event
-        {
-            Title = vm.Title.Trim(), Category = vm.Category, AgeLimit = vm.AgeLimit, Description = vm.Description.Trim(),
-            Tags = string.IsNullOrWhiteSpace(vm.Tags) ? null : vm.Tags.Trim(),
-            Venue = vm.Venue.Trim(), District = vm.District.Trim(), StartsAt = start,
-            DoorsAt = vm.Doors is { } d ? vm.Date.Value.ToDateTime(d) : start.AddMinutes(-45),
-            CoverImage = coverPath ?? $"/img/covers/{vm.CoverPreset}.jpg",
-            OrganizerId = me!.Id, CreatedAt = clock.Now,
-            Status = vm.Intent == "draft" ? EventStatus.Draft : EventStatus.Published,
-            Tiers = vm.Tiers.Select((t, i) => new TicketTier { Name = t.Name.Trim(), Description = t.Description?.Trim(), Price = t.Price!.Value, Capacity = t.Capacity!.Value, SortOrder = i }).ToList()
-        };
-        db.Events.Add(ev);
-        await db.SaveChangesAsync(ct);
-        audit.Log(me.Id, me.FullName, ev.Status == EventStatus.Draft ? "event.draft" : "event.publish", $"#{ev.Id} {ev.Title}");
-        await db.SaveChangesAsync(ct);
-
+        var ev = await events.CreateAsync(User.Id(), vm, cover ?? $"/img/covers/{vm.CoverPreset}.jpg", ct);
         TempData["Toast"] = ev.Status == EventStatus.Draft
             ? "Taslak kaydedildi. Yayınlayana kadar yalnızca sen görürsün."
             : "Yayınlandı. Etkinliğin Keşfet'te görünüyor.";
         return Redirect($"/etkinlik/{ev.Id}");
     }
 
-    private async Task SetFormViewData()
+    [Authorize(Roles = Roles.OrganizerOrAdmin), HttpGet("/etkinlik/{id:int}/duzenle")]
+    public async Task<IActionResult> Edit(int id, CancellationToken ct)
+    {
+        var ev = await events.GetEditableAsync(User.Id(), User.IsInRole(Roles.Admin), id, ct);
+        return await FormView(EventManagementService.ToForm(ev));
+    }
+
+    [Authorize(Roles = Roles.OrganizerOrAdmin), HttpPost("/etkinlik/{id:int}/duzenle"), RequestSizeLimit(4 * 1024 * 1024)]
+    public async Task<IActionResult> Edit(int id, EventFormVm vm, CancellationToken ct)
+    {
+        var current = await events.GetEditableAsync(User.Id(), User.IsInRole(Roles.Admin), id, ct);
+        vm.Id = id;
+        vm.CurrentCover = current.CoverImage;
+        vm.CurrentStatus = current.Status;
+        var cover = await PrepareAsync(vm, ct);
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                await events.UpdateAsync(User.Id(), User.IsInRole(Roles.Admin), id, vm, cover ?? (vm.CoverPreset > 0 ? $"/img/covers/{vm.CoverPreset}.jpg" : null), ct);
+                TempData["Toast"] = "Değişiklikler kaydedildi.";
+                return Redirect($"/etkinlik/{id}");
+            }
+            catch (DomainException ex) when (ex.StatusCode is 400 or 409)
+            {
+                ModelState.AddModelError(ex.Field ?? "", ex.Message); // e.g. capacity below tickets sold
+            }
+        }
+        return await FormView(vm);
+    }
+
+    /// <summary>Drops empty tier rows and saves an uploaded cover; returns the cover path or null.</summary>
+    private async Task<string?> PrepareAsync(EventFormVm vm, CancellationToken ct)
+    {
+        vm.Tiers = vm.Tiers.Where(t => t.Id is > 0 || !string.IsNullOrWhiteSpace(t.Name) || t.Price is not null || t.Capacity is not null).ToList();
+        if (vm.Tiers.Count == 0) ModelState.AddModelError(nameof(vm.Tiers), "En az bir bilet türü için ad, fiyat ve kontenjan gir.");
+        if (!ModelState.IsValid || vm.CoverUpload is not { Length: > 0 } file) return null;
+        var path = await SaveCoverAsync(file, ct);
+        if (path is null) ModelState.AddModelError(nameof(vm.CoverUpload), "Görsel dosyası okunamadı; JPG, PNG ya da WEBP yükle.");
+        return path;
+    }
+
+    private async Task<IActionResult> FormView(EventFormVm vm)
+    {
+        await SetFormViewData(vm.IsEdit);
+        return View("Form", vm);
+    }
+
+    private async Task SetFormViewData(bool edit = false)
     {
         var me = await db.Users.FindAsync(User.Id());
-        ViewData["Title"] = "Yeni Etkinlik";
-        ViewData["Nav"] = "olustur";
+        ViewData["Title"] = edit ? "Etkinliği Düzenle" : "Yeni Etkinlik";
+        ViewData["Nav"] = edit ? "profil" : "olustur";
         ViewData["Org"] = me?.OrganizationName ?? me?.FullName;
         ViewData["MinDate"] = clock.Now.ToString("yyyy-MM-dd");
     }

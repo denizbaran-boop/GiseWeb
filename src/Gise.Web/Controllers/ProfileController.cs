@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Gise.Web.Controllers;
 
 public record TicketRow(Ticket Ticket, Order Order, Event Event, TicketTier Tier);
+public class EventTicketStats { public int EventId { get; set; } public int Issued { get; set; } public int CheckedIn { get; set; } }
 public record OrganizerEventRow(Event Event, int Sold, int Capacity, int Revenue, int CheckedIn, int Issued);
 
 public class ProfileVm
@@ -44,11 +45,17 @@ public class ProfileController(GiseDbContext db, IClock clock) : Controller
         if (me.Role == UserRole.Organizer)
         {
             var evs = await db.Events.AsNoTracking().Include(e => e.Tiers).Where(e => e.OrganizerId == me.Id).OrderBy(e => e.StartsAt).ToListAsync(ct);
-            var ids = evs.Select(e => e.Id).ToList();
-            var tickets = await db.Tickets.AsNoTracking().Where(t => ids.Contains(t.Order!.EventId) && t.Status != TicketStatus.Cancelled)
-                .GroupBy(t => t.Order!.EventId)
-                .Select(g => new { EventId = g.Key, Issued = g.Count(), CheckedIn = g.Count(t => t.Status == TicketStatus.Redeemed) })
-                .ToListAsync(ct);
+            // Per-event ticket report with a JOIN + GROUP BY in SQL.
+            var tickets = await db.Database.SqlQuery<EventTicketStats>($"""
+                SELECT o.EventId AS EventId,
+                       COUNT(t.Id) AS Issued,
+                       SUM(CASE WHEN t.Status = {(int)TicketStatus.Redeemed} THEN 1 ELSE 0 END) AS CheckedIn
+                FROM Tickets t
+                JOIN Orders o ON o.Id = t.OrderId
+                JOIN Events e ON e.Id = o.EventId
+                WHERE e.OrganizerId = {me.Id} AND t.Status <> {(int)TicketStatus.Cancelled}
+                GROUP BY o.EventId
+                """).ToListAsync(ct);
             myEvents = evs.Select(e =>
             {
                 var t = tickets.FirstOrDefault(x => x.EventId == e.Id);

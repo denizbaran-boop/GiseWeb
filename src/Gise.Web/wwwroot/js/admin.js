@@ -1,6 +1,6 @@
 /* Yönetim: user search/filter (GET /api/admin/users), ban/unban with undo, event moderation. */
 (function () {
-  const { $, $$, api, esc, ic, avatar, toast, openSheet, closeSheet, sheetHead, debounce, busy, validateForm, bindValidation, applyServerErrors } = G;
+  const { $, $$, api, esc, ic, avatar, toast, openSheet, closeSheet, sheetHead, confirmSheet, debounce, busy, validateForm, bindValidation, applyServerErrors } = G;
   const body = $("#ubody");
   let users = [], filter = "Tümü", seq = 0;
 
@@ -78,13 +78,21 @@
       case "ban": if (u) banSheet(u); break;
       case "unban": if (u) { busy(a, true, "…"); await unban(u); } break;
       case "reload": load(); break;
+      case "deleteEvent":
+        confirmSheet({
+          title: "Etkinliği sil",
+          html: `<p class="subhead"><b>${esc(a.dataset.title)}</b> kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>`,
+          confirm: "Sil",
+          onConfirm: async () => { await api(`/api/organizer/events/${a.dataset.id}`, { method: "DELETE" }); a.closest("tr").remove(); toast("Etkinlik silindi."); }
+        });
+        break;
       case "setStatus": {
         busy(a, true, "Kaydediliyor…");
         try {
           const r = await api(`/api/organizer/events/${a.dataset.id}/status`, { method: "POST", body: { status: a.dataset.v } });
           const tr = a.closest("tr"), on = r.status === "Published";
           tr.querySelector("[data-status-pill]").innerHTML = on ? '<span class="pill ok"><span class="dot"></span>Yayında</span>' : '<span class="pill bad">Kaldırıldı</span>';
-          tr.querySelector("[data-actions]").innerHTML = on
+          a.outerHTML = on
             ? `<button class="btn btn-ban btn-sm" data-act="setStatus" data-id="${a.dataset.id}" data-v="Unpublished">Yayından Kaldır</button>`
             : `<button class="btn btn-gray btn-sm" data-act="setStatus" data-id="${a.dataset.id}" data-v="Published">Yeniden Yayınla</button>`;
           toast(on ? "Etkinlik yeniden yayında." : "Etkinlik yayından kaldırıldı; artık Keşfet'te görünmüyor.");

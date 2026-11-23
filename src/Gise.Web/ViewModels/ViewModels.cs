@@ -139,6 +139,9 @@ public record PreferencesVm(bool RemindersEnabled);
 
 public class TierFormVm
 {
+    /// <summary>Existing tier id when editing; null for a new tier.</summary>
+    public int? Id { get; set; }
+
     [Required(ErrorMessage = "Bilet türü adını gir."), StringLength(30, ErrorMessage = "Bilet türü adı en fazla 30 karakter.")]
     public string Name { get; set; } = "";
 
@@ -154,6 +157,13 @@ public class TierFormVm
 
 public class EventFormVm : IValidatableObject
 {
+    /// <summary>Set when editing an existing event.</summary>
+    public int? Id { get; set; }
+    public bool IsEdit => Id is > 0;
+    /// <summary>Cover of the event being edited (shown as the "keep current" option).</summary>
+    public string? CurrentCover { get; set; }
+    public EventStatus? CurrentStatus { get; set; }
+
     [Required(ErrorMessage = "Etkinlik adını gir."), StringLength(60, MinimumLength = 3, ErrorMessage = "Etkinlik adı 3–60 karakter olmalı.")]
     public string Title { get; set; } = "";
 
@@ -176,12 +186,13 @@ public class EventFormVm : IValidatableObject
     [Required(ErrorMessage = "İlçeyi gir."), StringLength(40, ErrorMessage = "İlçe en fazla 40 karakter.")]
     public string District { get; set; } = "";
 
-    [Range(1, Catalog.CoverPresets)] public int CoverPreset { get; set; } = 1;
+    /// <summary>1–12 = preset cover; 0 = keep the current cover (edit only).</summary>
+    [Range(0, Catalog.CoverPresets)] public int CoverPreset { get; set; } = 1;
     public IFormFile? CoverUpload { get; set; }
 
     public List<TierFormVm> Tiers { get; set; } = [new() { Name = "Tam" }];
 
-    /// <summary>"publish" or "draft" — which submit button was used.</summary>
+    /// <summary>"publish", "draft" or "save" (keep current status) — which submit button was used.</summary>
     public string Intent { get; set; } = "publish";
 
     public const long MaxCoverBytes = 3 * 1024 * 1024;
@@ -191,6 +202,7 @@ public class EventFormVm : IValidatableObject
     {
         if (!Catalog.Categories.Contains(Category)) yield return new("Listeden bir kategori seç.", [nameof(Category)]);
         if (!Catalog.AgeLimits.Contains(AgeLimit)) yield return new("Listeden bir yaş sınırı seç.", [nameof(AgeLimit)]);
+        if (CoverPreset == 0 && !IsEdit && CoverUpload is null) yield return new("Bir kapak görseli seç.", [nameof(CoverUpload)]);
 
         var now = ctx.GetService<IClock>()?.Now ?? DateTime.Now;
         if (Date is { } d && Time is { } t)
