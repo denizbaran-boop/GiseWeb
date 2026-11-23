@@ -1,0 +1,19 @@
+# Render Blueprint — creates the Gişe web service from this repository.
+# Render dashboard → New → Blueprint → pick this repo → Apply.
+services:
+  - type: web
+    name: gise-web
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/events
+    autoDeploy: true
+    envVars:
+      - key: Gise__TicketSecret
+        generateValue: true        # random secret for signing ticket QR codes
+      - key: Gise__ShowDemoCodes
+        value: "true"              # show sample ticket codes on the check-in page
+      - key: Gise__Ai__ApiKey
+        sync: false                # optional: paste an Anthropic key in the dashboard

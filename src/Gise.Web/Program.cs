@@ -2,15 +2,36 @@ using Gise.Web.Data;
 using Gise.Web.Infrastructure;
 using Gise.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Hosting platforms such as Render tell the app which port to listen on.
+if (Environment.GetEnvironmentVariable("PORT") is { Length: > 0 } port)
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 // ---- Data -------------------------------------------------------------------
-builder.Services.AddDbContext<GiseDbContext>(o =>
-    o.UseSqlite(builder.Configuration.GetConnectionString("Gise") ?? "Data Source=gise.db"));
+var connectionString = builder.Configuration.GetConnectionString("Gise") ?? "Data Source=gise.db";
+var dataDir = Path.GetDirectoryName(Path.GetFullPath(new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(connectionString).DataSource))!;
+Directory.CreateDirectory(dataDir);
+builder.Services.AddDbContext<GiseDbContext>(o => o.UseSqlite(connectionString));
+
+// Keep cookie/anti-forgery keys next to the database so sign-ins survive a restart.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Gise.Web")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDir, "keys")));
+
+// Behind a hosting proxy the original scheme (https) arrives in X-Forwarded-Proto.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();
+    o.KnownProxies.Clear();
+});
 
 // ---- Domain services ---------------------------------------------------------
 builder.Services.AddSingleton<IClock, IstanbulClock>();
@@ -82,6 +103,8 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
     await DbSeeder.SeedAsync(db, scope.ServiceProvider.GetRequiredService<IClock>());
 }
+
+app.UseForwardedHeaders();
 
 // ---- Error handling ----------------------------------------------------------
 // Unhandled exceptions: JSON ProblemDetails for /api, friendly page for everything else.

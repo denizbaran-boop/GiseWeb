@@ -44,6 +44,10 @@ Open **http://localhost:5102**. On the first start the application creates `src/
 - **Reset demo data:** stop the app and delete `src/Gise.Web/gise.db`.
 - **Run the tests:** `dotnet test` in this folder (31 tests).
 
+### Optional: live demo on Render
+
+The repository contains a `Dockerfile` and a Render Blueprint (`render.yaml`). In the [Render dashboard](https://dashboard.render.com) choose **New → Blueprint**, select this repository and click **Apply**; Render builds the container and publishes it at `https://gise-web.onrender.com` (or a similar address). On the free plan the service sleeps after 15 minutes without visitors (the first request then takes about a minute) and the database is reset to the demo data when it restarts. Running locally as described above is the supported way to evaluate the project.
+
 ## 3. Configuration and dependencies
 
 | Setting (`src/Gise.Web/appsettings.json`) | Purpose | Default |
@@ -52,6 +56,8 @@ Open **http://localhost:5102**. On the first start the application creates `src/
 | `Gise:TicketSecret` | Key used to sign ticket QR codes (HMAC-SHA256) | development placeholder — change for a real deployment |
 | `Gise:Ai:ApiKey` | Optional Anthropic API key for "AI ile yaz" | empty → built-in template is used |
 | `Gise:Ai:Model` | Model used when a key is set | `claude-haiku-5-5` |
+| `Gise:ShowDemoCodes` | Show sample ticket codes on the check-in page outside development (used on the demo server) | `false` |
+| `PORT` (environment variable) | Port to listen on when hosted (set by Render; the Docker image uses 8080) | — |
 
 No secrets are committed. To use a real language model, store the key outside the repository:
 `cd src/Gise.Web && dotnet user-secrets init && dotnet user-secrets set "Gise:Ai:ApiKey" "<your key>"`.
@@ -116,6 +122,7 @@ Seed data: 18 users, 14 events (12 upcoming, 2 past), 3 ticket tiers per event, 
 
 ```
 GiseWeb.slnx
+Dockerfile, render.yaml  Container image and Render deployment (optional)
 database/schema.sql      SQL script that recreates the database
 docs/                    Technical documentation (PDF)
 src/Gise.Web/
