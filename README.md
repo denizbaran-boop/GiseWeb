@@ -8,7 +8,7 @@ Event ticketing and AI-assisted discovery platform — SOFT3111 Internet and Web
 | --- | --- |
 | Project #1 — Proposal | [ProjectProposal.docx](ProjectProposal.docx) |
 | Project #2 — Static, navigable prototype | Repository root (`index.html` …), live on [GitHub Pages](https://denizbaran-boop.github.io/GiseWeb/) |
-| **Project #3 — Functional web application** | [`src/Gise.Web`](src/Gise.Web) (ASP.NET Core MVC + EF Core + SQLite), tests in [`tests/Gise.Tests`](tests/Gise.Tests) |
+| **Project #3 — Functional web application** | [`src/Gise.Web`](src/Gise.Web) (ASP.NET Core MVC + EF Core + SQLite), tests in [`tests/Gise.Tests`](tests/Gise.Tests), documentation: [docs/Gise_Web_Project3_Documentation.pdf](docs/Gise_Web_Project3_Documentation.pdf) |
 
 ---
 

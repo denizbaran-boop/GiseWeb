@@ -142,7 +142,7 @@
   function validateForm(form) {
     let first = null, firstMsg = "";
     for (const el of fields(form)) { const m = ruleFor(el); setError(el, m); if (m && !first) { first = el; firstMsg = m; } }
-    errorBox(form, firstMsg);
+    errorBox(form, first && !msgEl(first) ? firstMsg : ""); // the box is only for fields without their own message
     if (first) first.focus({ preventScroll: false });
     return !first;
   }
