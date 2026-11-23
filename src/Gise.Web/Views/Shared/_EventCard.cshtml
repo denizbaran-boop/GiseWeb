@@ -1,0 +1,28 @@
+@model Event
+@{
+    var left = EventQueryService.Left(Model);
+    var low = left > 0 && left <= 50;
+}
+<a class="card" href="/etkinlik/@Model.Id" aria-label="@Model.Title, @Ui.ShortDate(Model.StartsAt), @Model.Venue">
+    <div class="cover">
+        <img src="@Model.CoverImage" alt="" loading="lazy">
+        <div class="date-badge" aria-hidden="true"><b class="num">@Model.StartsAt.Day</b><span>@Ui.MonthShortUpper(Model.StartsAt)</span></div>
+        <span class="cover-shade" aria-hidden="true"></span><span class="cover-cat" aria-hidden="true">@Model.Category</span>
+    </div>
+    <div class="card-body">
+        <h3 class="card-title">@Model.Title</h3>
+        <p class="card-meta">@Ui.ShortDate(Model.StartsAt)</p>
+        <p class="card-meta">@Model.Venue, @Model.District</p>
+        <div class="card-foot">
+            <span class="price num">@Ui.Tl(EventQueryService.PriceFrom(Model))<small>'den başlayan</small></span>
+            @if (left == 0)
+            {
+                <span class="pill neutral">Tükendi</span>
+            }
+            else if (low)
+            {
+                <span class="pill warn"><span class="dot"></span>Son @left bilet</span>
+            }
+        </div>
+    </div>
+</a>

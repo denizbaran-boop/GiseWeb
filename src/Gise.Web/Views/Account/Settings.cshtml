@@ -1,0 +1,42 @@
+@model User
+@{
+    ViewData["Page"] = "settings";
+    var u = new ChangeUsernameVm();
+    var m = new ChangeEmailVm();
+    var p = new ChangePasswordVm();
+}
+<main class="page page-narrow">
+    <a class="back" href="/profil">@Ui.Icon("chevL", "", 2.2)Profil</a>
+    <h1 class="large-title">Hesap Ayarları</h1>
+
+    <form id="fUser" novalidate data-endpoint="/api/account/username">
+        <p class="section-head">Kullanıcı adı</p>
+        <div class="group">
+            <div class="form-row"><label>Mevcut</label><span class="row-value" id="curUser">@@@Model.Username</span></div>
+            <div class="form-row"><label for="username">Yeni kullanıcı adı</label><input class="input" asp-for="@u.Username" id="username" name="username" autocomplete="username" placeholder="ör. @(Model.Username).ist"></div>
+        </div>
+        <div class="section-actions"><p class="msg" id="nuMsg" data-valmsg-for="username" style="color:var(--label-2)">3–20 karakter; harf, rakam, nokta ve alt çizgi.</p><button class="btn btn-tinted btn-sm" type="submit" id="nuBtn" disabled>Kaydet</button></div>
+    </form>
+
+    <form id="fMail" novalidate data-endpoint="/api/account/email" data-error-box="#mailMsg">
+        <p class="section-head">E-posta</p>
+        <div class="group">
+            <div class="form-row"><label>Mevcut</label><span class="row-value" id="curMail">@Model.Email</span></div>
+            <div class="form-row"><label for="email">Yeni e-posta</label><input class="input" asp-for="@m.Email" id="email" name="email" type="email" autocomplete="email" placeholder="ad@ornek.com"></div>
+            <div class="form-row"><label for="mailPass">Şifren</label><input class="input" asp-for="@m.CurrentPassword" id="mailPass" name="currentPassword" type="password" autocomplete="current-password" placeholder="Onay için gerekli"></div>
+        </div>
+        <div class="section-actions"><p class="msg" id="mailMsg" data-form-msg role="status" style="color:var(--label-2)">Değişiklik için mevcut şifreni gir.</p><button class="btn btn-tinted btn-sm" type="submit">E-postayı Güncelle</button></div>
+    </form>
+
+    <form id="fPass" novalidate data-endpoint="/api/account/password" data-error-box="#passMsg">
+        <p class="section-head">Şifre</p>
+        <div class="group">
+            <div class="form-row"><label for="op">Mevcut şifre</label><input class="input" asp-for="@p.CurrentPassword" id="op" name="currentPassword" type="password" autocomplete="current-password" placeholder="Gerekli"></div>
+            <div class="form-row"><label for="np">Yeni şifre</label><input class="input" asp-for="@p.NewPassword" id="np" name="newPassword" type="password" autocomplete="new-password" placeholder="En az 8 karakter"><div class="meter" id="meter" data-s="0" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div>
+            <div class="form-row"><label for="np2">Yeni şifre (tekrar)</label><input class="input" asp-for="@p.ConfirmPassword" id="np2" name="confirmPassword" type="password" autocomplete="new-password" placeholder="Tekrar gir"></div>
+        </div>
+        <ul class="rules" id="rules"><li data-r="len">@Ui.Icon("check", "i-sm", 2.4)8+ karakter</li><li data-r="up">@Ui.Icon("check", "i-sm", 2.4)Büyük harf</li><li data-r="num">@Ui.Icon("check", "i-sm", 2.4)Rakam</li><li data-r="match">@Ui.Icon("check", "i-sm", 2.4)Şifreler aynı</li></ul>
+        <div class="section-actions"><p class="msg" id="passMsg" data-form-msg role="status" hidden></p><span></span><button class="btn btn-primary btn-sm" type="submit">Şifreyi Güncelle</button></div>
+    </form>
+</main>
+@section Scripts { <script src="~/js/settings.js" asp-append-version="true"></script> }

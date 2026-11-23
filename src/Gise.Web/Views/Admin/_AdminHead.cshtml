@@ -1,0 +1,17 @@
+@{
+    var s = (AdminStats)ViewData["Stats"]!;
+    var tab = ViewData["AdminTab"] as string;
+}
+<div class="page-head"><div><p class="eyebrow">Admin</p><h1 class="large-title">@ViewData["Title"]</h1></div>
+    <nav class="seg" aria-label="Yönetim bölümleri">
+        <a href="/yonetim" aria-pressed="@(tab == "users" ? "true" : "false")" aria-current="@(tab == "users" ? "page" : null)">Kullanıcılar</a>
+        <a href="/yonetim/etkinlikler" aria-pressed="@(tab == "events" ? "true" : "false")" aria-current="@(tab == "events" ? "page" : null)">Etkinlikler</a>
+        <a href="/yonetim/kayitlar" aria-pressed="@(tab == "audit" ? "true" : "false")" aria-current="@(tab == "audit" ? "page" : null)">Kayıtlar</a>
+    </nav>
+</div>
+<div class="stats">
+    <div class="stat"><span class="footnote">Toplam kullanıcı</span><b class="num">@Ui.Num(s.Users)</b><span class="caption">Bu hafta +@s.NewThisWeek</span></div>
+    <div class="stat"><span class="footnote">Organizatör</span><b class="num">@s.Organizers</b><span class="caption">@s.Events etkinlik yayında</span></div>
+    <div class="stat"><span class="footnote">Satılan bilet</span><b class="num">@Ui.Num(s.TicketsSold)</b><span class="caption">@Ui.Tl(s.Revenue) ciro</span></div>
+    <div class="stat"><span class="footnote">Banlı hesap</span><b style="color:var(--bad)" class="num" id="bannedCount">@s.Banned</b><span class="caption">Şu an askıda</span></div>
+</div>

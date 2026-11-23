@@ -1,0 +1,75 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{
+    var nav = ViewData["Nav"] as string ?? "";
+    var signedIn = User.IsSignedIn();
+    var name = User.Identity?.Name ?? "";
+    var tabs = new List<(string href, string key, string label, string icon)> { ("/", "kesfet", "Keşfet", "compass") };
+    if (signedIn)
+    {
+        tabs.Add(("/profil", "profil", "Profil", "person"));
+        if (User.IsInRole(Roles.Organizer))
+        {
+            tabs.Add(("/etkinlik/yeni", "olustur", "Oluştur", "plusSq"));
+            tabs.Add(("/giris-kontrol", "kontrol", "Giriş Kontrolü", "scan"));
+        }
+        if (User.IsInRole(Roles.Admin)) tabs.Add(("/yonetim", "yonetim", "Yönetim", "shield"));
+    }
+    var role = User.IsInRole(Roles.Admin) ? "admin" : User.IsInRole(Roles.Organizer) ? "organizer" : signedIn ? "user" : "guest";
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@ViewData["Title"] · Gişe</title>
+    <meta name="csrf-token" content="@Xsrf.GetAndStoreTokens(Context).RequestToken">
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+    <script>try{var t=localStorage.getItem("gise-theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body data-page="@ViewData["Page"]" data-role="@role">
+    <a class="skip" href="#main">İçeriğe geç</a>
+    <div class="edge" aria-hidden="true"></div>
+    <header class="nav glass">
+        <a class="brand" href="/" aria-label="Gişe, Keşfet'e git">@Ui.Logo(30)<span>Gişe</span></a>
+        <nav class="tabs" aria-label="Ana gezinme">
+            @foreach (var t in tabs)
+            {
+                <a class="tab" href="@t.href" aria-current="@(nav == t.key ? "page" : null)">@Ui.Icon(t.icon, "i-sm", nav == t.key ? 2.2 : 1.9)@t.label</a>
+            }
+        </nav>
+        <div class="nav-right">
+            <button type="button" class="theme-btn" data-act="toggleTheme" aria-label="Koyu moda geç">@Ui.Icon("moon", "", 2)</button>
+            @if (signedIn)
+            {
+                <a href="/profil" class="avatar avatar-btn" style="background:@Ui.AvatarBg(name)" aria-label="Profil: @name">@Ui.Initials(name)</a>
+            }
+            else
+            {
+                <a class="btn btn-gray btn-sm" href="/kayit">Hesap Oluştur</a>
+                <a class="btn btn-primary btn-sm" href="/giris?returnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)">Giriş Yap</a>
+            }
+        </div>
+    </header>
+
+    <div id="main" tabindex="-1">
+        @RenderBody()
+    </div>
+
+    <footer class="footer">
+        <p class="footnote">Gişe · SOFT3111 Internet and Web Programming · Grup 13</p>
+        <p class="footnote">Ders projesi; gerçek ödeme alınmaz.</p>
+    </footer>
+
+    <div id="layer"></div>
+    <div id="ai-root"></div>
+    @if (TempData["Toast"] is string toast)
+    {
+        <script type="application/json" id="flash">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(toast))</script>
+    }
+    <script src="~/js/core.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+    <script src="~/js/assistant.js" asp-append-version="true"></script>
+</body>
+</html>

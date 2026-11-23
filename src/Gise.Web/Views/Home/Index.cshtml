@@ -1,0 +1,57 @@
+@model DiscoverVm
+@{
+    ViewData["Page"] = "discover";
+    string[] cats = ["Tümü", .. Catalog.Categories];
+    (int? v, string l)[] prices = [(null, "Her fiyat"), (250, "₺250 ve altı"), (500, "₺500 ve altı"), (1000, "₺1.000 ve altı")];
+}
+<main class="page">
+    <div class="page-head">
+        <div><p class="eyebrow">İstanbul · Yaklaşan etkinlikler</p><h1 class="large-title">Keşfet</h1></div>
+        <form class="discover-tools" id="filters" method="get" action="/" role="search">
+            <div class="search">@Ui.Icon("search")<label class="sr" for="q">Ara</label><input class="input" id="q" name="q" type="search" placeholder="Etkinlik, mekân veya organizatör ara" value="@Model.Q" maxlength="80" autocomplete="off"></div>
+            <input type="hidden" name="kategori" id="kategori" value="@(Model.Category == "Tümü" ? "" : Model.Category)">
+            <label class="sr" for="sort">Sırala</label>
+            <select class="input select-pill" id="sort" name="sirala">
+                <option value="date" selected="@(Model.Sort == "date")">Tarihe göre</option>
+                <option value="price" selected="@(Model.Sort == "price")">Fiyata göre</option>
+                <option value="popular" selected="@(Model.Sort == "popular")">En çok satan</option>
+            </select>
+            <label class="sr" for="maxPrice">Bütçe</label>
+            <select class="input select-pill" id="maxPrice" name="enFazla">
+                @foreach (var p in prices)
+                {
+                    <option value="@p.v" selected="@(Model.MaxPrice == p.v)">@p.l</option>
+                }
+            </select>
+            <noscript><button class="btn btn-gray" type="submit">Ara</button></noscript>
+        </form>
+    </div>
+
+    <div class="chips" role="group" aria-label="Kategori" style="margin-bottom:28px">
+        @foreach (var c in cats)
+        {
+            <a class="chip" href="/?kategori=@(c == "Tümü" ? "" : c)" data-cat="@(c == "Tümü" ? "" : c)" aria-pressed="@(Model.Category == c ? "true" : "false")">@c</a>
+        }
+    </div>
+
+    @if (Model.Recommended.Count > 0)
+    {
+        <section class="recs" aria-labelledby="recs-h" id="recs">
+            <div class="section-title"><h2 class="title2" id="recs-h">Senin için</h2><p class="footnote">Daha önce bilet aldığın türlere göre</p></div>
+            <div class="grid">
+                @foreach (var e in Model.Recommended) { <partial name="_EventCard" model="e" /> }
+            </div>
+            <h2 class="title2" style="margin:40px 0 18px">Bütün etkinlikler</h2>
+        </section>
+    }
+
+    <p class="footnote result-count" id="count" aria-live="polite">@Model.Events.Count etkinlik</p>
+    <div class="grid" id="grid" aria-busy="false">
+        @if (Model.Events.Count == 0)
+        {
+            <div class="empty">@Ui.Icon("search")<p class="headline">Eşleşen etkinlik yok</p><p class="subhead">Başka bir kelime dene ya da filtreleri kaldır.</p><a class="btn btn-gray" href="/" data-act="clearFilters">Filtreleri Temizle</a></div>
+        }
+        @foreach (var e in Model.Events) { <partial name="_EventCard" model="e" /> }
+    </div>
+</main>
+@section Scripts { <script src="~/js/discover.js" asp-append-version="true"></script> }

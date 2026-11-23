@@ -1,0 +1,38 @@
+@model LoginVm
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Giriş";
+    ViewData["Page"] = "login";
+    (string role, string label, string login)[] demo = [("user", "Katılımcı", "elif.kaya@ornek.com"), ("organizer", "Organizatör", "mert@sahnekolektif.com"), ("admin", "Admin", "zeynep@gise.app")];
+}
+<div>
+    <form class="auth-card glass" id="loginForm" method="post" asp-antiforgery="true" action="/giris" novalidate data-error-box="#lgErr">
+        <div class="auth-head">@Ui.Logo(64)<h1 class="title1">Gişe'ye giriş yap</h1><p class="subhead">Şehrin bütün sahneleri, tek gişede.</p></div>
+        <input type="hidden" asp-for="ReturnUrl">
+        <div class="grouped-fields">
+            <label class="sr" asp-for="Login">E-posta veya kullanıcı adı</label>
+            <input class="input" asp-for="Login" type="text" autocomplete="username" placeholder="E-posta veya kullanıcı adı" autofocus>
+            <div class="sep"></div>
+            <label class="sr" asp-for="Password">Şifre</label>
+            <input class="input" asp-for="Password" autocomplete="current-password" placeholder="Şifre">
+        </div>
+        @{ var errors = ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList(); }
+        <p class="msg err" id="lgErr" role="alert" hidden="@(errors.Count == 0)">@Ui.Icon("info", "i-sm")<span>@errors.FirstOrDefault()</span></p>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <label class="check-row"><input type="checkbox" asp-for="RememberMe"> Beni hatırla</label>
+            <button type="button" class="link" data-act="forgot">Şifremi Unuttum</button>
+        </div>
+        <button class="btn btn-primary btn-large btn-block" type="submit">Giriş Yap</button>
+        <div class="or">ya da</div>
+        <a class="btn btn-gray btn-large btn-block" href="/kayit@(Model.ReturnUrl is null ? "" : "?returnUrl=" + Uri.EscapeDataString(Model.ReturnUrl))">Hesap Oluştur</a>
+    </form>
+    <div class="proto-role">
+        <span class="caption" style="color:rgba(255,255,255,.85)">Demo hesapla gir (şifre: <b>@DbSeeder.DemoPassword</b>)</span>
+        <div class="seg" role="group" aria-label="Demo hesap">
+            @foreach (var d in demo)
+            {
+                <button type="button" data-act="demo" data-login="@d.login" data-pass="@DbSeeder.DemoPassword">@d.label</button>
+            }
+        </div>
+    </div>
+</div>

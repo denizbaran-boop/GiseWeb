@@ -1,0 +1,33 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Xsrf
+@{
+    int[] ids = [3, 1, 5, 7, 2, 12, 6, 9, 4, 10, 11, 8, 1, 7, 3, 12, 5, 2, 10, 4, 9, 6, 8, 11];
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@ViewData["Title"] · Gişe</title>
+    <meta name="csrf-token" content="@Xsrf.GetAndStoreTokens(Context).RequestToken">
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+    <script>try{var t=localStorage.getItem("gise-theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body class="is-auth" data-page="@ViewData["Page"]">
+    <main class="auth" id="main">
+        <div class="auth-bg" aria-hidden="true">@foreach (var i in ids)
+            {<img src="/img/covers/@(i).jpg" alt="">}</div>
+        <div class="auth-dim" aria-hidden="true"></div>
+        <div class="auth-theme"><button type="button" class="theme-btn glass" data-act="toggleTheme" aria-label="Koyu moda geç">@Ui.Icon("moon", "", 2)</button></div>
+        @RenderBody()
+    </main>
+    <div id="layer"></div>
+    @if (TempData["Toast"] is string toast)
+    {
+        <script type="application/json" id="flash">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(toast))</script>
+    }
+    <script src="~/js/core.js" asp-append-version="true"></script>
+    <script src="~/js/auth.js" asp-append-version="true"></script>
+</body>
+</html>

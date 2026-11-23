@@ -1,0 +1,47 @@
+@inject IClock Clock
+@model List<Event>
+@{
+    ViewData["Page"] = "admin-events";
+    var now = Clock.Now;
+}
+<main class="page">
+    <partial name="_AdminHead" />
+    <table class="table">
+        <thead><tr><th>Etkinlik</th><th>Organizatör</th><th>Tarih</th><th>Satış</th><th>Durum</th><th style="text-align:right">İşlem</th></tr></thead>
+        <tbody>
+            @foreach (var e in Model)
+            {
+                var sold = e.Tiers.Sum(t => t.Sold);
+                var cap = e.Tiers.Sum(t => t.Capacity);
+                var past = e.StartsAt <= now;
+                <tr data-event="@e.Id">
+                    <td><div class="who"><img src="@e.CoverImage" alt="" style="width:40px;height:50px;border-radius:8px;object-fit:cover"><div><a class="link" style="font-weight:600" href="/etkinlik/@e.Id">@e.Title</a><div class="footnote">@e.Category · @e.Venue</div></div></div></td>
+                    <td class="footnote" style="font-size:15px">@(e.Organizer?.OrganizationName ?? e.Organizer?.FullName)</td>
+                    <td class="num">@e.StartsAt.ToString("dd.MM.yyyy")</td>
+                    <td class="num">@Ui.Num(sold) / @Ui.Num(cap)</td>
+                    <td data-status-pill>
+                        @if (past) { <span class="pill neutral">Sona erdi</span> }
+                        else if (e.Status == EventStatus.Published) { <span class="pill ok"><span class="dot"></span>Yayında</span> }
+                        else if (e.Status == EventStatus.Draft) { <span class="pill warn">Taslak</span> }
+                        else { <span class="pill bad">Kaldırıldı</span> }
+                    </td>
+                    <td style="text-align:right" data-actions>
+                        @if (!past && e.Status == EventStatus.Published)
+                        {
+                            <button class="btn btn-ban btn-sm" data-act="setStatus" data-id="@e.Id" data-v="Unpublished">Yayından Kaldır</button>
+                        }
+                        else if (!past && e.Status == EventStatus.Unpublished)
+                        {
+                            <button class="btn btn-gray btn-sm" data-act="setStatus" data-id="@e.Id" data-v="Published">Yeniden Yayınla</button>
+                        }
+                        else
+                        {
+                            <span class="footnote">—</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</main>
+@section Scripts { <script src="~/js/admin.js" asp-append-version="true"></script> }

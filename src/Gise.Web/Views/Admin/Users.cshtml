@@ -1,0 +1,22 @@
+@{
+    ViewData["Page"] = "admin-users";
+}
+<main class="page">
+    <partial name="_AdminHead" />
+    <div class="toolbar">
+        <div class="search">@Ui.Icon("search")<label class="sr" for="aq">Kullanıcı ara</label><input class="input" id="aq" type="search" placeholder="Ad, e-posta veya kullanıcı adı ara" autocomplete="off"></div>
+        <div class="seg" role="group" aria-label="Filtre" id="afilter">
+            @foreach (var f in new[] { "Tümü", "Katılımcı", "Organizatör", "Banlı" })
+            {
+                <button type="button" data-act="afilter" data-v="@f" aria-pressed="@(f == "Tümü" ? "true" : "false")">@f</button>
+            }
+        </div>
+    </div>
+    <table class="table">
+        <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Kayıt</th><th>Bilet</th><th>Durum</th><th style="text-align:right">İşlem</th></tr></thead>
+        <tbody id="ubody" aria-live="polite"><tr><td colspan="6" class="subhead" style="text-align:center;padding:40px">Yükleniyor…</td></tr></tbody>
+    </table>
+    <div class="pager"><span class="footnote" id="ucount"></span></div>
+    <template id="banReasons">@string.Join("|", BanRequest.Reasons)</template>
+</main>
+@section Scripts { <script src="~/js/admin.js" asp-append-version="true"></script> }

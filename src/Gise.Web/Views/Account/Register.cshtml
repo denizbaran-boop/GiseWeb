@@ -1,0 +1,35 @@
+@model RegisterVm
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Kayıt";
+    ViewData["Page"] = "register";
+    var org = Model.AccountType == UserRole.Organizer;
+}
+<form class="auth-card glass" id="regForm" method="post" asp-antiforgery="true" action="/kayit" novalidate data-error-box="#rgErr">
+    <div class="auth-head">@Ui.Logo(56)<h1 class="title1">Hesap oluştur</h1><p class="subhead">Bilet almak ya da etkinlik yayınlamak için.</p></div>
+    <input type="hidden" asp-for="ReturnUrl">
+    <input type="hidden" asp-for="AccountType" id="accountType">
+    <div class="seg seg-block" role="group" aria-label="Hesap türü">
+        <button type="button" data-act="regType" data-v="Attendee" aria-pressed="@(org ? "false" : "true")">Katılımcı</button>
+        <button type="button" data-act="regType" data-v="Organizer" aria-pressed="@(org ? "true" : "false")">Organizatör</button>
+    </div>
+    <div class="grouped-fields">
+        <label class="sr" asp-for="FullName">Ad soyad</label><input class="input" asp-for="FullName" autocomplete="name" placeholder="Ad soyad">
+        <div class="sep"></div>
+        <label class="sr" asp-for="Username">Kullanıcı adı</label><input class="input" asp-for="Username" autocomplete="username" placeholder="Kullanıcı adı" data-check-username>
+        <div class="sep"></div>
+        <label class="sr" asp-for="Email">E-posta</label><input class="input" asp-for="Email" type="email" autocomplete="email" placeholder="E-posta">
+        <div class="sep"></div>
+        <label class="sr" asp-for="Password">Şifre</label><input class="input" asp-for="Password" type="password" autocomplete="new-password" placeholder="Şifre (8+ karakter, büyük harf, rakam)">
+        <div id="orgRow" @(org ? "" : "hidden")>
+            <div class="sep"></div>
+            <label class="sr" asp-for="OrganizationName">Kurum veya sahne adı</label><input class="input" asp-for="OrganizationName" placeholder="Kurum veya sahne adı" data-val-requiredif="Organizatör hesabı için kurum veya sahne adını gir.">
+        </div>
+    </div>
+    <p class="caption hint" id="userHint" aria-live="polite"></p>
+    @{ var errors = ViewData.ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList(); }
+    <p class="msg err" id="rgErr" role="alert" hidden="@(errors.Count == 0)">@Ui.Icon("info", "i-sm")<span>@errors.FirstOrDefault()</span></p>
+    <label class="check-row"><input type="checkbox" asp-for="AcceptTerms" data-val="true" data-val-mustbetrue="Devam etmek için koşulları kabul et."> Kullanım koşullarını ve gizlilik politikasını kabul ediyorum.</label>
+    <button class="btn btn-primary btn-large btn-block" type="submit">Hesap Oluştur</button>
+    <p class="footnote" style="text-align:center">Zaten hesabın var mı? <a class="link" href="/giris">Giriş Yap</a></p>
+</form>
